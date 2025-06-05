@@ -1,5 +1,5 @@
 /*
- * Copyright 2006-2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2006-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -318,6 +318,10 @@ int pkeyutl_main(int argc, char **argv)
     }
 
     pkey = get_pkey(kdfalg, inkey, keyform, key_type, passinarg, pkey_op, e);
+    if (key_type != KEY_NONE && pkey == NULL) {
+        BIO_printf(bio_err, "%s: Error loading key\n", prog);
+        goto end;
+    }
 
     if (pkey_op == EVP_PKEY_OP_VERIFYRECOVER && !EVP_PKEY_is_a(pkey, "RSA")) {
         BIO_printf(bio_err, "%s: -verifyrecover can be used only with RSA\n", prog);
@@ -422,6 +426,7 @@ int pkeyutl_main(int argc, char **argv)
             if (EVP_PKEY_CTX_ctrl_str(ctx, opt, passwd) <= 0) {
                 BIO_printf(bio_err, "%s: Can't set parameter \"%s\":\n",
                            prog, opt);
+                OPENSSL_free(passwd);
                 goto end;
             }
             OPENSSL_free(passwd);

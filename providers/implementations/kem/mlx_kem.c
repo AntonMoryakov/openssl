@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2024-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -234,7 +234,7 @@ static int mlx_kem_encapsulate(void *vctx, unsigned char *ctext, size_t *clen,
     }
 
     ret = 1;
-  end:
+ end:
     EVP_PKEY_free(xkey);
     EVP_PKEY_CTX_free(ctx);
     return ret;
@@ -322,7 +322,7 @@ static int mlx_kem_decapsulate(void *vctx, uint8_t *shsec, size_t *slen,
     }
 
     ret = 1;
-  end:
+ end:
     EVP_PKEY_CTX_free(ctx);
     EVP_PKEY_free(xkey);
     return ret;

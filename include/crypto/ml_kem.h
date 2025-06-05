@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2024-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -90,32 +90,46 @@
  * Variant-specific constants and structures
  * -----------------------------------------
  */
-# define EVP_PKEY_ML_KEM_512    NID_ML_KEM_512
-# define ML_KEM_512_BITS        512
-# define ML_KEM_512_RANK        2
-# define ML_KEM_512_ETA1        3
-# define ML_KEM_512_ETA2        2
-# define ML_KEM_512_DU          10
-# define ML_KEM_512_DV          4
-# define ML_KEM_512_SECBITS     128
+# define EVP_PKEY_ML_KEM_512            NID_ML_KEM_512
+# define ML_KEM_512_BITS                512
+# define ML_KEM_512_RANK                2
+# define ML_KEM_512_ETA1                3
+# define ML_KEM_512_ETA2                2
+# define ML_KEM_512_DU                  10
+# define ML_KEM_512_DV                  4
+# define ML_KEM_512_SECBITS             128
+# define ML_KEM_512_SECURITY_CATEGORY   1
 
-# define EVP_PKEY_ML_KEM_768    NID_ML_KEM_768
-# define ML_KEM_768_BITS        768
-# define ML_KEM_768_RANK        3
-# define ML_KEM_768_ETA1        2
-# define ML_KEM_768_ETA2        2
-# define ML_KEM_768_DU          10
-# define ML_KEM_768_DV          4
-# define ML_KEM_768_SECBITS     192
+# define EVP_PKEY_ML_KEM_768            NID_ML_KEM_768
+# define ML_KEM_768_BITS                768
+# define ML_KEM_768_RANK                3
+# define ML_KEM_768_ETA1                2
+# define ML_KEM_768_ETA2                2
+# define ML_KEM_768_DU                  10
+# define ML_KEM_768_DV                  4
+# define ML_KEM_768_SECBITS             192
+# define ML_KEM_768_SECURITY_CATEGORY   3
 
-# define EVP_PKEY_ML_KEM_1024   NID_ML_KEM_1024
-# define ML_KEM_1024_BITS       1024
-# define ML_KEM_1024_RANK       4
-# define ML_KEM_1024_ETA1       2
-# define ML_KEM_1024_ETA2       2
-# define ML_KEM_1024_DU         11
-# define ML_KEM_1024_DV         5
-# define ML_KEM_1024_SECBITS    256
+# define EVP_PKEY_ML_KEM_1024           NID_ML_KEM_1024
+# define ML_KEM_1024_BITS               1024
+# define ML_KEM_1024_RANK               4
+# define ML_KEM_1024_ETA1               2
+# define ML_KEM_1024_ETA2               2
+# define ML_KEM_1024_DU                 11
+# define ML_KEM_1024_DV                 5
+# define ML_KEM_1024_SECBITS            256
+# define ML_KEM_1024_SECURITY_CATEGORY  5
+
+# define ML_KEM_KEY_RANDOM_PCT  (1 << 0)
+# define ML_KEM_KEY_FIXED_PCT   (1 << 1)
+# define ML_KEM_KEY_PREFER_SEED (1 << 2)
+# define ML_KEM_KEY_RETAIN_SEED (1 << 3)
+/* Mask to check whether PCT on import is enabled */
+# define ML_KEM_KEY_PCT_TYPE \
+    (ML_KEM_KEY_RANDOM_PCT | ML_KEM_KEY_FIXED_PCT)
+/* Default provider flags */
+# define ML_KEM_KEY_PROV_FLAGS_DEFAULT \
+    (ML_KEM_KEY_RANDOM_PCT | ML_KEM_KEY_PREFER_SEED | ML_KEM_KEY_RETAIN_SEED)
 
 /*
  * External variant-specific API
@@ -137,6 +151,7 @@ typedef struct {
     int du;
     int dv;
     int secbits;
+    int security_category;
 } ML_KEM_VINFO;
 
 /* Retrive global variant-specific parameters */
@@ -171,8 +186,7 @@ typedef struct ossl_ml_kem_key_st {
     struct ossl_ml_kem_scalar_st *s;        /* Private key secret vector */
     uint8_t *z;                             /* Private key FO failure secret */
     uint8_t *d;                             /* Private key seed */
-    int prefer_seed;                        /* Given seed and key use seed? */
-    int retain_seed;                        /* Retain the seed after keygen? */
+    int prov_flags;                         /* prefer/retain seed and PCT flags */
 
     /*
      * Fixed-size built-in buffer, which holds the |rho| and the public key

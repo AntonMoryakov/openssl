@@ -4882,7 +4882,7 @@ ASN1_item_verify_ex                     5009	3_0_0	EXIST::FUNCTION:
 BIO_socket_wait                         5010	3_0_0	EXIST::FUNCTION:SOCK
 BIO_wait                                5011	3_0_0	EXIST::FUNCTION:
 BIO_do_connect_retry                    5012	3_0_0	EXIST::FUNCTION:
-OSSL_parse_url                          5013	3_0_0	EXIST::FUNCTION:HTTP
+OSSL_parse_url                          5013	3_0_0	EXIST::FUNCTION:
 OSSL_HTTP_adapt_proxy                   5014	3_0_0	EXIST::FUNCTION:HTTP
 OSSL_HTTP_REQ_CTX_get_resp_len          5015	3_0_0	EXIST::FUNCTION:HTTP
 OSSL_HTTP_REQ_CTX_set_expected          5016	3_0_0	EXIST::FUNCTION:HTTP
@@ -5894,7 +5894,7 @@ EVP_CipherInit_SKEY                     ?	3_5_0	EXIST::FUNCTION:
 EVP_SKEY_import                         ?	3_5_0	EXIST::FUNCTION:
 EVP_SKEY_generate                       ?	3_5_0	EXIST::FUNCTION:
 EVP_SKEY_import_raw_key                 ?	3_5_0	EXIST::FUNCTION:
-EVP_SKEY_get_raw_key                    ?	3_5_0	EXIST::FUNCTION:
+EVP_SKEY_get0_raw_key                   ?	3_5_0	EXIST::FUNCTION:
 EVP_SKEY_export                         ?	3_5_0	EXIST::FUNCTION:
 EVP_SKEY_up_ref                         ?	3_5_0	EXIST::FUNCTION:
 EVP_SKEY_free                           ?	3_5_0	EXIST::FUNCTION:
@@ -5924,3 +5924,8 @@ OSSL_AA_DIST_POINT_free                 ?	3_5_0	EXIST::FUNCTION:
 OSSL_AA_DIST_POINT_new                  ?	3_5_0	EXIST::FUNCTION:
 OSSL_AA_DIST_POINT_it                   ?	3_5_0	EXIST::FUNCTION:
 PEM_ASN1_write_bio_ctx                  ?	3_5_0	EXIST::FUNCTION:
+EVP_PKEY_get_security_category          ?	3_6_0	EXIST::FUNCTION:
+OPENSSL_sk_set_thunks                   ?	3_6_0	EXIST::FUNCTION:
+i2d_PKCS8PrivateKey                     ?	3_6_0	EXIST::FUNCTION:
+OSSL_PARAM_set_octet_string_or_ptr      ?	3_6_0	EXIST::FUNCTION:
+OSSL_STORE_LOADER_settable_ctx_params   ?	3_6_0	EXIST::FUNCTION:

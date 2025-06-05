@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2024-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -168,9 +168,9 @@ static int fake_cipher(void *vctx, unsigned char *out, size_t *outl,
     PROV_CIPHER_FAKE_CTX *ctx = (PROV_CIPHER_FAKE_CTX *)vctx;
     size_t i;
 
-    if (outsize < inl)
+    if (out == NULL || outsize < inl)
         return 0;
-    if (out != NULL && in != out)
+    if (in != out)
         memcpy(out, in, inl);
     for (i = 0; i < inl; i++)
         out[i] ^= ctx->key[i % FAKE_KEY_LEN];

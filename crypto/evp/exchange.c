@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2023 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -35,12 +35,13 @@ static EVP_KEYEXCH *evp_keyexch_new(OSSL_PROVIDER *prov)
     if (exchange == NULL)
         return NULL;
 
-    if (!CRYPTO_NEW_REF(&exchange->refcnt, 1)) {
+    if (!CRYPTO_NEW_REF(&exchange->refcnt, 1)
+        || !ossl_provider_up_ref(prov)) {
+        CRYPTO_FREE_REF(&exchange->refcnt);
         OPENSSL_free(exchange);
         return NULL;
     }
     exchange->prov = prov;
-    ossl_provider_up_ref(prov);
 
     return exchange;
 }
@@ -441,7 +442,10 @@ int EVP_PKEY_derive_set_peer_ex(EVP_PKEY_CTX *ctx, EVP_PKEY *peer,
      */
     if (provkey == NULL)
         goto legacy;
-    return ctx->op.kex.exchange->set_peer(ctx->op.kex.algctx, provkey);
+    ret = ctx->op.kex.exchange->set_peer(ctx->op.kex.algctx, provkey);
+    if (ret <= 0)
+        return ret;
+    goto common;
 
  legacy:
 #ifdef FIPS_MODULE
@@ -493,19 +497,19 @@ int EVP_PKEY_derive_set_peer_ex(EVP_PKEY_CTX *ctx, EVP_PKEY *peer,
         return -1;
     }
 
+    ret = ctx->pmeth->ctrl(ctx, EVP_PKEY_CTRL_PEER_KEY, 1, peer);
+    if (ret <= 0)
+        return ret;
+#endif
+
+ common:
+    if (!EVP_PKEY_up_ref(peer))
+        return -1;
+
     EVP_PKEY_free(ctx->peerkey);
     ctx->peerkey = peer;
 
-    ret = ctx->pmeth->ctrl(ctx, EVP_PKEY_CTRL_PEER_KEY, 1, peer);
-
-    if (ret <= 0) {
-        ctx->peerkey = NULL;
-        return ret;
-    }
-
-    EVP_PKEY_up_ref(peer);
     return 1;
-#endif
 }
 
 int EVP_PKEY_derive_set_peer(EVP_PKEY_CTX *ctx, EVP_PKEY *peer)

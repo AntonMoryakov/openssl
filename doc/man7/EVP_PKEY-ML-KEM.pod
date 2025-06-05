@@ -108,6 +108,17 @@ configuration options programmatically.
 
 =over 4
 
+=item C<ml-kem.import_pct_type> (B<OSSL_PKEY_PARAM_ML_KEM_IMPORT_PCT_TYPE>) <UTF8 string>
+
+When an B<ML-KEM> key is imported as an explict FIPS 203 B<dk> decapsulation
+key, rather than a seed, a pairwise consistency test (PCT) is optionally
+performed.
+By default, or when this parameter is set explicitly to C<random>, the PCT
+is performed with a random entropy value for the encapsulation step.
+Setting the parameter to C<fixed>, still runs the test, but the encapsulation
+entropy is a fixed 32 byte value.
+Specifying any other value of the parameter, e.g. C<none>, skips the test.
+
 =item C<ml-kem.retain_seed> (B<OSSL_PKEY_PARAM_ML_KEM_RETAIN_SEED>) <UTF8 string>
 
 When set to a string representing a false boolean value (see
@@ -294,7 +305,7 @@ L<EVP_PKEY(3)>,
 L<EVP_PKEY_get_raw_private_key(3)>,
 L<EVP_PKEY_get_raw_public_key(3)>,
 L<EVP_PKEY_get1_encoded_public_key(3)>,
-LOSSL_PROVIDER_add_conf_parameter(3)>,
+L<OSSL_PROVIDER_add_conf_parameter(3)>,
 L<provider-keymgmt(7)>,
 L<EVP_KEM-ML-KEM(7)>
 
@@ -304,7 +315,7 @@ This functionality was added in OpenSSL 3.5.
 
 =head1 COPYRIGHT
 
-Copyright 2024 The OpenSSL Project Authors. All Rights Reserved.
+Copyright 2024-2025 The OpenSSL Project Authors. All Rights Reserved.
 
 Licensed under the Apache License 2.0 (the "License").  You may not use
 this file except in compliance with the License.  You can obtain a copy

@@ -45,6 +45,9 @@ void *generic_import(void *provctx, int selection, const OSSL_PARAM params[])
         return NULL;
 
     generic = OPENSSL_zalloc(sizeof(PROV_SKEY));
+    if (generic == NULL)
+        return NULL;
+
     generic->libctx = libctx;
 
     generic->type = SKEY_TYPE_GENERIC;
@@ -60,6 +63,16 @@ end:
         generic = NULL;
     }
     return generic;
+}
+
+static const OSSL_PARAM generic_import_params[] = {
+    OSSL_PARAM_octet_string(OSSL_SKEY_PARAM_RAW_BYTES, NULL, 0),
+    OSSL_PARAM_END
+};
+
+const OSSL_PARAM *generic_imp_settable_params(void *provctx)
+{
+    return generic_import_params;
 }
 
 int generic_export(void *keydata, int selection,
@@ -86,5 +99,7 @@ const OSSL_DISPATCH ossl_generic_skeymgmt_functions[] = {
     { OSSL_FUNC_SKEYMGMT_FREE, (void (*)(void))generic_free },
     { OSSL_FUNC_SKEYMGMT_IMPORT, (void (*)(void))generic_import },
     { OSSL_FUNC_SKEYMGMT_EXPORT, (void (*)(void))generic_export },
+    { OSSL_FUNC_SKEYMGMT_IMP_SETTABLE_PARAMS,
+      (void (*)(void))generic_imp_settable_params },
     OSSL_DISPATCH_END
 };

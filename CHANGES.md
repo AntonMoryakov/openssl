@@ -12,6 +12,7 @@ appropriate release branch.
 OpenSSL Releases
 ----------------
 
+ - [OpenSSL 3.6](#openssl-36)
  - [OpenSSL 3.5](#openssl-35)
  - [OpenSSL 3.4](#openssl-34)
  - [OpenSSL 3.3](#openssl-33)
@@ -25,23 +26,156 @@ OpenSSL Releases
  - [OpenSSL 1.0.0](#openssl-100)
  - [OpenSSL 0.9.x](#openssl-09x)
 
+OpenSSL 3.6
+-----------
+
+### Changes between 3.5 and 3.6 [xx XXX xxxx]
+
+ * The VxWorks platforms have been removed. These platforms were unadopted,
+   unmaintained and reported to be non-functional.
+
+   *Anthony Ioppolo*
+
+ * Relax the path check in OpenSSL's 'file:' scheme implementation for
+   OSSL_STORE.  Previously, when the 'file:' scheme is an explicit part
+   of the URI, our implementation required an absolute path, such as
+   'file:/path/to/file.pem'.  This requirement is now relaxed, allowing
+   'file:path/to/file.pem', as well as 'file:file.pem'.
+
+   *Richard Levitte*
+
+ * Changed openssl-pkey(1) to match the documentation when private keys
+   are output in DER format (`-outform DER`) by producing the `PKCS#8` form by
+   default.  Previously this would output the *traditional* form for those
+   older key types (`DSA`, `RSA`, `ECDSA`) that had such a form.  The
+   `-traditional` flag has been extended to support explicit requests to output
+   that format in DER format (it was previously PEM-only).
+
+   *Viktor Dukhovni*
+
+ * Added an `openssl configutl` utility for processing the openssl
+   configuration file and dumping the equal configuration file.
+
+   *Dmitry Belyavskiy based on Clemens Lang's code*
+
+ * Support setting a free function thunk to OPENSSL_sk stack types. Using a thunk
+   allows the type specific free function to be called with the correct type
+   information from generic functions like OPENSSL_sk_pop_free().
+
+   *Frederik Wedel-Heinen*
+
+ * Enabled x86-64 SM4 optimizations with SM4 ISA Extension available starting
+   Lunar Lake and Arrow Lake S CPUs. The expected performance improvement is
+   ~3.6x for sm4-cbc, ~2.9x for sm4-gcm, ~9.2x for sm4-xts, ~5.3x for sm4-ccm
+   (on average, may vary depending on the data size) on Arrow Lake S.
+
+   *Alina Elizarova*
+
+ * Enabled x86-64 SM3 optimizations with SM3 ISA Extension available starting
+   Lunar Lake and Arrow Lake S CPUs. The expected performance improvement is
+   ~ 2.2-4.7x (depends on the data size) on Arrow Lake S.
+
+   *Alina Elizarova*
+
+ * Enabled x86-64 SHA-512 optimizations with SHA512 ISA Extension.
+   Optimized digests: `sha384`, `sha512`, `sha512-224`, `sha512-256`.
+   `openssl speed` shows speedups ranging from 1.6x to 4.5x on
+   the P-cores of Intel Core Ultra 5 238V.
+
+   *Adrian Stanciu*
+
+ * Change default EC point formats configuration to support only 'uncompressed'
+   format, and add SSL_OP_LEGACY_EC_POINT_FORMATS flag and options to re-enable
+   previous default if required.
+
+   *Tim Perry*
+
+ * Increase PKCS12 default macsaltlen from 8 to 16, as per NIST SP
+   800-132 this improves interoperability for newly generated PKCS12
+   stores between FIPS and non-FIPS implementations.
+
+   *Dimitri John Ledkov*
+
 OpenSSL 3.5
 -----------
 
-### Changes between 3.4 and 3.5 [xx XXX xxxx]
+### Changes between 3.5.0 and 3.5.1 [xx XXX xxxx]
 
-* ML-KEM as specified in FIPS 203.
+ * Aligned the behaviour of TLS and DTLS in the event of a no_renegotiation
+   alert being received. Older versions of OpenSSL failed with DTLS if a
+   no_renegotiation alert was received. All versions of OpenSSL do this for TLS.
+   From 3.2 a bug was exposed that meant that DTLS ignored no_rengotiation. We
+   have now restored the original behaviour and brought DTLS back into line with
+   TLS.
 
-  Based on the original implementation in BoringSSL, ported from C++ to C,
-  refactored, and integrated into the OpenSSL default and FIPS providers.
-  Including also the X25519MLKEM768, SecP256r1MLKEM768, SecP384r1MLKEM1024
-  TLS hybrid key post-quantum/classical key agreement schemes.
-  *Michael Baentsch, Viktor Dukhovni, Shane Lontis and Paul Dale*
+   *Matt Caswell*
 
-* Add ML-DSA as specified in FIPS 204.
+### Changes between 3.4 and 3.5.0 [8 Apr 2025]
 
-  The base code was derived from BoringSSL C++ code.
-  *Shane Lontis, Viktor Dukhovni and Paul Dale*
+ * Added server side support for QUIC
+
+   *Hugo Landau, Matt Caswell, Tomáš Mráz, Neil Horman, Sasha Nedvedicky, Andrew Dinh*
+
+ * Tolerate PKCS#8 version 2 with optional public keys. The public key data
+   is currently ignored.
+
+   *Viktor Dukhovni*
+
+ * Signature schemes without an explicit signing digest in CMS are now supported.
+   Examples of such schemes are ED25519 or ML-DSA.
+
+   *Michael Schroeder*
+
+ * The TLS Signature algorithms defaults now include all three ML-DSA variants as
+   first algorithms.
+
+   *Viktor Dukhovni*
+
+ * Added a `no-tls-deprecated-ec` configuration option.
+
+   The `no-tls-deprecated-ec` option disables support for TLS elliptic curve
+   groups deprecated in RFC8422 at compile time.  This does not affect use of
+   the associated curves outside TLS.  By default support for these groups is
+   compiled in, but, as before, they are not included in the default run-time
+   list of supported groups.
+
+   With the `enable-tls-deprecated-ec` option these TLS groups remain enabled at
+   compile time even if the default configuration is changed, provided the
+   underlying EC curves remain implemented.
+
+   *Viktor Dukhovni*
+
+ * Added new API to enable 0-RTT for 3rd party QUIC stacks.
+
+   *Cheng Zhang*
+
+ * Added support for a new callback registration `SSL_CTX_set_new_pending_conn_cb`,
+   which allows for application notification of new connection SSL object
+   creation, which occurs independently of calls to `SSL_accept_connection()`.
+   Note: QUIC objects passed through SSL callbacks should not have their state
+   mutated via calls back into the SSL api until such time as they have been
+   received via a call to `SSL_accept_connection()`.
+
+   *Neil Horman*
+
+ * Add SLH-DSA as specified in FIPS 205.
+
+   *Shane Lontis and Dr Paul Dale*
+
+ * ML-KEM as specified in FIPS 203.
+
+   Based on the original implementation in BoringSSL, ported from C++ to C,
+   refactored, and integrated into the OpenSSL default and FIPS providers.
+   Including also the X25519MLKEM768, SecP256r1MLKEM768, SecP384r1MLKEM1024
+   TLS hybrid key post-quantum/classical key agreement schemes.
+
+   *Michael Baentsch, Viktor Dukhovni, Shane Lontis and Paul Dale*
+
+ * Add ML-DSA as specified in FIPS 204.
+
+   The base code was derived from BoringSSL C++ code.
+
+   *Shane Lontis, Viktor Dukhovni and Paul Dale*
 
  * Added new API calls to enable 3rd party QUIC stacks to use the OpenSSL TLS
    implementation.
@@ -56,15 +190,29 @@ OpenSSL 3.5
 
    *Simo Sorce*
 
- * Initial support for opaque symmetric keys objects.  These replace the ad-hoc byte
-   arrays that are pervasive throughout the library.
+ * Initial support for opaque symmetric keys objects (EVP_SKEY). These
+   replace the ad-hoc byte arrays that are pervasive throughout the library.
 
    *Dmitry Belyavskiy and Simo Sorce*
 
- * For TLSv1.3: Add capability for a client to send multiple key shares. Extend the scope of
-   `SSL_OP_CIPHER_SERVER_PREFERENCE` to cover server-side key exchange group selection.
-   Extend the server-side key exchange group selection algorithm and related group list syntax
-   to support multiple group priorities, e.g. to prioritize (hybrid-)KEMs.
+ * The default TLS group list setting is now set to:
+   `?*X25519MLKEM768 / ?*X25519:?secp256r1 / ?X448:?secp384r1:?secp521r1 / ?ffdhe2048:?ffdhe3072`
+
+   This means two key shares (X25519MLKEM768 and X25519) will be sent by
+   default by the TLS client. GOST groups and FFDHE groups larger than 3072
+   bits are no longer enabled by default.
+
+   The group names in the group list setting are now also case insensitive.
+
+   *Viktor Dukhovni*
+
+ * For TLSv1.3: Add capability for a client to send multiple key shares.
+   Extend the scope of `SSL_OP_CIPHER_SERVER_PREFERENCE` to cover
+   server-side key exchange group selection.
+
+   Extend the server-side key exchange group selection algorithm and related
+   group list syntax to support multiple group priorities, e.g. to prioritize
+   (hybrid-)KEMs.
 
    *David Kelsey*, *Martin Schmatz*
 
@@ -82,14 +230,14 @@ OpenSSL 3.5
 
    *Viktor Dukhovni*
 
- * All the BIO_meth_get_*() functions allowing reuse of the internal OpenSSL
+ * All the `BIO_meth_get_*()` functions allowing reuse of the internal OpenSSL
    BIO method implementations were deprecated. The reuse is unsafe due to
    dependency on the code of the internal methods not changing.
 
    *Tomáš Mráz*
 
- * Support DEFAULT keyword and '-' prefix in SSL_CTX_set1_groups_list().
-   SSL_CTX_set1_groups_list() now supports the DEFAULT keyword which sets the
+ * Support DEFAULT keyword and '-' prefix in `SSL_CTX_set1_groups_list()`.
+   `SSL_CTX_set1_groups_list()` now supports the DEFAULT keyword which sets the
    available groups to the default selection. The '-' prefix allows the calling
    application to remove a group from the selection.
 
@@ -103,7 +251,7 @@ OpenSSL 3.5
    *Aditya*
 
  * Enhanced PKCS#7 inner contents verification.
-   In the PKCS7_verify() function, the BIO *indata parameter refers to the
+   In the `PKCS7_verify()` function, the BIO *indata parameter refers to the
    signed data if the content is detached from p7. Otherwise, indata should be
    NULL, and then the signed data must be in p7.
 
@@ -182,10 +330,71 @@ OpenSSL 3.5
 
    *Zhiguo Zhou, Wangyang Guo (Intel Corp)*
 
+ * VAES/AVX-512 support for AES-XTS.
+
+   For capable processors (>= Intel Icelake), this provides a
+   vectorized implementation of AES-XTS with a throughput improvement
+   between 1.3x to 2x, depending on the block size.
+
+   *Pablo De Lara Guarch, Dan Pittman*
+
+ * Fixed EVP_DecodeUpdate() to not write padding zeros to the decoded output.
+
+   According to the documentation, for every 4 valid base64 bytes processed
+   (ignoring whitespace, carriage returns and line feeds), EVP_DecodeUpdate()
+   produces 3 bytes of binary output data (except at the end of data
+   terminated with one or two padding characters). However, the function
+   behaved like an EVP_DecodeBlock(). It produced exactly 3 output bytes for
+   every 4 input bytes. Such behaviour could cause writes to a non-allocated
+   output buffer if a user allocates its size based on the documentation and
+   knowing the padding size.
+
+   The fix makes EVP_DecodeUpdate() produce exactly as many output bytes as
+   in the initial non-encoded message.
+
+   *Valerii Krygin*
+
+ * Added support for aAissuingDistributionPoint, allowedAttributeAssignments,
+   timeSpecification, attributeDescriptor, roleSpecCertIdentifier,
+   authorityAttributeIdentifier and attributeMappings X.509v3 extensions.
+
+   *Jonathan M. Wilbur*
+
+ * Added a new CLI option `-provparam` and API functions for setting of
+   provider configuration parameters.
+
+   *Viktor Dukhovni*
+
+ * Added a new trace category for PROVIDER calls and added new tracing calls
+   in provider and algorithm fetching API functions.
+
+   *Neil Horman*
+
+ * Fixed benchmarking for AEAD ciphers in the `openssl speed` utility.
+
+   *Mohammed Alhabib*
+
+ * Added a build configuration option `enable-sslkeylog` for enabling support
+   for SSLKEYLOGFILE environment variable to log TLS connection secrets.
+
+   *Neil Horman*
+
+ * Added EVP_get_default_properties() function to retrieve the current default
+   property query string.
+
+   *Dmitry Belyavskiy*
+
 OpenSSL 3.4
 -----------
 
-### Changes between 3.4.0 and 3.4.1 [xx XXX xxxx]
+### Changes between 3.4.1 and 3.4.2 [xx XXX xxxx]
+
+ * When displaying distinguished names in the openssl application escape control
+   characters by default.
+
+   *Tomáš Mráz*
+
+### Changes between 3.4.0 and 3.4.1 [11 Feb 2025]
 
  * Fixed RFC7250 handshakes with unauthenticated servers don't abort as expected.
 
@@ -352,7 +561,9 @@ OpenSSL 3.4
 
    *Rajeev Ranjan*
 
- * Added support for requesting CRL in CMP.
+ * Added support for retrieving certificate request templates and CRLs in CMP,
+   with the respective CLI options `-template`,
+   `-crlcert`, `-oldcrl`, `-crlout`, `-crlform>`, and `-rsp_crl`.
 
    This work was sponsored by Siemens AG.
 
@@ -557,6 +768,8 @@ OpenSSL 3.3
  * Added several new features of CMPv3 defined in RFC 9480 and RFC 9483:
    - `certProfile` request message header and respective `-profile` CLI option
    - support for delayed delivery of all types of response messages
+
+   This work was sponsored by Siemens AG.
 
    *David von Oheimb*
 
@@ -863,11 +1076,6 @@ OpenSSL 3.2
 
    *Fergus Dall*
 
- * Added support for securely getting root CA certificate update in
-   CMP.
-
-   *David von Oheimb*
-
  * Improved contention on global write locks by using more read locks where
    appropriate.
 
@@ -1133,8 +1341,11 @@ OpenSSL 3.2
    *David von Oheimb*
 
  * Various fixes and extensions to the CMP+CRMF implementation and the `cmp` app
-   in particular supporting requests for central key generation, generalized
-   polling, and various types of genm/genp exchanges defined in CMP Updates.
+   in particular supporting various types of genm/genp exchanges such as getting
+   CA certificates and root CA cert updates defined in CMP Updates [RFC 9480],
+   as well as the `-srvcertout` and `-serial` CLI options.
+
+   This work was sponsored by Siemens AG.
 
    *David von Oheimb*
 
@@ -4390,7 +4601,7 @@ OpenSSL 1.1.1
  * Support for TLSv1.3 added. Note that users upgrading from an earlier
    version of OpenSSL should review their configuration settings to ensure
    that they are still appropriate for TLSv1.3. For further information see:
-   <https://wiki.openssl.org/index.php/TLS1.3>
+   <https://github.com/openssl/openssl/wiki/TLS1.3>
 
    *Matt Caswell*
 
@@ -5678,7 +5889,7 @@ OpenSSL 1.1.0
 
  * The GOST engine was out of date and therefore it has been removed. An up
    to date GOST engine is now being maintained in an external repository.
-   See: <https://wiki.openssl.org/index.php/Binaries>. Libssl still retains
+   See: <https://github.com/openssl/openssl/wiki/Binaries>. Libssl still retains
    support for GOST ciphersuites (these are only activated if a GOST engine
    is present).
 
@@ -6456,6 +6667,11 @@ OpenSSL 1.1.0
    validated when establishing a connection.
 
    *Rob Percival <robpercival@google.com>*
+
+ * SSLv3 is by default disabled at build-time. Builds that are not
+   configured with "enable-ssl3" will not support SSLv3.
+
+   *Kurt Roeckx*
 
 OpenSSL 1.0.2
 -------------

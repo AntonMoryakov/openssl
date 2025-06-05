@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2023 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -60,6 +60,9 @@ int ossl_provider_add_to_store(OSSL_PROVIDER *prov, OSSL_PROVIDER **actualprov,
 
 /* Return pointer to the provider's context */
 void *ossl_provider_ctx(const OSSL_PROVIDER *prov);
+
+/* Force loading of fallback providers if necessary */
+int ossl_provider_activate_fallbacks(OSSL_LIB_CTX *ctx);
 
 /* Iterate over all loaded providers */
 int ossl_provider_doall_activated(OSSL_LIB_CTX *,

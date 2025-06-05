@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -53,6 +53,7 @@ extern "C" {
 # define OSSL_SELF_TEST_DESC_PCT_DSA        "DSA"
 # define OSSL_SELF_TEST_DESC_PCT_ML_DSA     "ML-DSA"
 # define OSSL_SELF_TEST_DESC_PCT_ML_KEM     "ML-KEM"
+# define OSSL_SELF_TEST_DESC_PCT_SLH_DSA    "SLH-DSA"
 # define OSSL_SELF_TEST_DESC_CIPHER_AES_GCM "AES_GCM"
 # define OSSL_SELF_TEST_DESC_CIPHER_AES_ECB "AES_ECB_Decrypt"
 # define OSSL_SELF_TEST_DESC_CIPHER_TDES    "TDES"
@@ -66,6 +67,7 @@ extern "C" {
 # define OSSL_SELF_TEST_DESC_SIGN_ECDSA     "ECDSA"
 # define OSSL_SELF_TEST_DESC_SIGN_EDDSA     "EDDSA"
 # define OSSL_SELF_TEST_DESC_SIGN_ML_DSA    "ML-DSA"
+# define OSSL_SELF_TEST_DESC_SIGN_SLH_DSA   "SLH-DSA"
 # define OSSL_SELF_TEST_DESC_KEM            "KEM"
 # define OSSL_SELF_TEST_DESC_DRBG_CTR       "CTR"
 # define OSSL_SELF_TEST_DESC_DRBG_HASH      "HASH"
@@ -85,10 +87,11 @@ extern "C" {
 # define OSSL_SELF_TEST_DESC_KDF_TLS13_EXPAND   "TLS13_KDF_EXPAND"
 # define OSSL_SELF_TEST_DESC_RNG            "RNG"
 # define OSSL_SELF_TEST_DESC_KEYGEN_ML_DSA  "ML-DSA"
+# define OSSL_SELF_TEST_DESC_KEYGEN_ML_KEM  "ML-KEM"
+# define OSSL_SELF_TEST_DESC_KEYGEN_SLH_DSA "SLH-DSA"
 # define OSSL_SELF_TEST_DESC_ENCAP_KEM      "KEM_Encap"
 # define OSSL_SELF_TEST_DESC_DECAP_KEM      "KEM_Decap"
 # define OSSL_SELF_TEST_DESC_DECAP_KEM_FAIL "KEM_Decap_Reject"
-# define OSSL_SELF_TEST_DESC_KEYGEN_KEM     "KEM_Keygen"
 
 void OSSL_SELF_TEST_set_callback(OSSL_LIB_CTX *libctx, OSSL_CALLBACK *cb,
                                  void *cbarg);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2024-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -8,6 +8,7 @@
  */
 
 #include <openssl/ssl.h>
+#include "internal/ssl_unwrap.h"
 #include "internal/quic_tls.h"
 #include "../ssl_local.h"
 
@@ -178,10 +179,30 @@ int SSL_set_quic_tls_transport_params(SSL *s,
 {
     SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
 
+    if (sc == NULL)
+        return 0;
+
     if (sc->qtls == NULL) {
         ERR_raise(ERR_LIB_SSL, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
         return 0;
     }
 
     return ossl_quic_tls_set_transport_params(sc->qtls, params, params_len);
+}
+
+int SSL_set_quic_tls_early_data_enabled(SSL *s, int enabled)
+{
+    SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(s);
+
+    if (!SSL_is_tls(s)) {
+        ERR_raise(ERR_LIB_SSL, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
+        return 0;
+    }
+
+    if (sc->qtls == NULL) {
+        ERR_raise(ERR_LIB_SSL, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
+        return 0;
+    }
+
+    return ossl_quic_tls_set_early_data_enabled(sc->qtls, enabled);
 }

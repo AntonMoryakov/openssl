@@ -781,6 +781,12 @@ Don't build support for Elliptic Curves.
 
 Don't build support for binary Elliptic Curves
 
+### no-tls-deprecated-ec
+
+Disable legacy TLS EC groups that were deprecated in RFC8422.  These are the
+Koblitz curves, B<secp160r1>, B<secp160r2>, B<secp192r1>, B<secp224r1>, and the
+binary Elliptic curves that would also be disabled by C<no-ec2m>.
+
 ### enable-ec_nistp_64_gcc_128
 
 Enable support for optimised implementations of some commonly used NIST
@@ -983,6 +989,11 @@ Build support for Stream Control Transmission Protocol (SCTP).
 Do not create shared libraries, only static ones.
 
 See [Notes on shared libraries](#notes-on-shared-libraries) below.
+
+### no-slh-dsa
+
+Disable Stateless Hash Based Digital Signature Standard support.
+(SLH-DSA is based on SPHINCS+. See [FIPS 205])
 
 ### no-sm2-precomp
 
@@ -2058,3 +2069,6 @@ is used, as it is the version of the GNU assembler that will be checked.
 
 [jitterentropy-library]:
     <https://github.com/smuellerDD/jitterentropy-library>
+
+[FIPS 205]:
+    <https://csrc.nist.gov/pubs/fips/205/final>

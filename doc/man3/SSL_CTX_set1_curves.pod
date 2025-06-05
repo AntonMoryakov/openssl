@@ -96,8 +96,10 @@ respectively:
 
 Each group can be either the B<NIST> name (e.g. B<P-256>), some other commonly
 used name where applicable (e.g. B<X25519>, B<ffdhe2048>) or an OpenSSL OID name
-(e.g. B<prime256v1>). Group names are case sensitive. The preferred group names
-are those defined by IANA for TLS parameters.
+(e.g. B<prime256v1>).
+Group names are case-insensitive in OpenSSL 3.5 and later.
+The preferred group names are those defined by
+L<IANA|https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8>.
 
 The I<list> can be used to define several group tuples of comparable security
 levels, and can specify which key shares should be sent by a client.
@@ -112,8 +114,8 @@ group listed will also be used for the B<key_share> sent by a client in a
 TLSv1.3 B<ClientHello>. For servers note the discussion above. The list should
 be in order of preference with the most preferred group first.
 
-Group tuples of comparable security are defined by replacing any group separator
-C<:> with a tuple separator C</>. Keyshares to be sent by a client are specified
+Group tuples of comparable security are defined by separating them from each
+other by a tuple separator C</>. Keyshares to be sent by a client are specified
 by prepending a C<*> to the group name, while any C<*> will be ignored by a
 server. The following string I<list> for example defines three tuples when
 used on the server-side, and triggers the generation of three key shares
@@ -166,13 +168,7 @@ pseudo-code algorithm:
 
 Hence, if a client supports a group in a server group tuple, but does not send a key
 share for this group, a Hello Retry Request (HRR) is triggered, asking the client
-to send a new Hello message with a more preferred keyshare. For example:
-Assume the server I<list> is "P-521:P-256/P-384/X25519:ffdhe2048".
-If a client I<list> is "P-521:*P-384" when connecting to such a server, meaning that
-the client supports C<P-521> but does not send a key share for this group to the server,
-and the client supports C<P-384> including key share for this group, a HRR will be
-triggered for C<P-521> despite the availability of a key share for P-384, which
-overlaps with a lower priority server-side tuple.
+to send a new Hello message with a more preferred keyshare. See examples below.
 
 A group name can optionally be preceded by any of C<*>, C<?> or C<->, in any order, with
 the exception that only C<*> is allowed to precede C<DEFAULT>. Separator characters
@@ -214,7 +210,9 @@ TLS versions, when a session has been resumed, it always reflects the group
 used for key exchange during the initial handshake (otherwise it is from the
 current, non-resumption, connection).  This can be called by either client or
 server. If the NID for the shared group is unknown then the value is set to the
-bitwise OR of TLSEXT_nid_unknown (0x1000000) and the id of the group.
+bitwise OR of TLSEXT_nid_unknown (0x1000000) and the id of the group. See also
+L<SSL_get0_group_name(3)> which returns the name of the negotiated group
+directly and is generally preferred over SSL_get_negotiated_group().
 
 SSL_CTX_get0_implemented_groups() populates a stack with the names of TLS
 groups that are compatible with the TLS version of the B<ctx> argument.
@@ -263,10 +261,63 @@ returns -1.
 SSL_get_negotiated_group() returns the NID of the negotiated group used for
 key exchange, or NID_undef if there was no negotiated group.
 
+=head1 EXAMPLES
+
+Assume the server I<list> is "P-521:P-256/P-384/X25519:ffdhe2048" and client
+I<list> is "P-521:*P-384" when connecting to such a server, meaning that the
+client supports C<P-521> but does not send a key share for this group to the
+server, and the client supports C<P-384> including key share for this group.
+With both server and client preference, an HRR will be triggered for C<P-521>
+despite the availability of a key share for P-384, which overlaps with a lower
+priority server-side tuple.
+
+As a separate example, consider a server I<list> "A:B/C:D/E:F". Listed in order
+of highest preference to least, 3 group tuples are created: "A:B", "C:D", and
+"E:F". Here are some examples of a client I<list> where setting server/client
+preference will not change the outcome:
+
+- "A:D:*F": Both prefer "A", but the server didn't receive a keyshare for the
+most-preferred tuple in which there's at least one group supported by both.
+Therefore, an HRR is triggered for "A".
+
+- "B:*C": Both prefer "B" from the first group tuple "A:B", so an HRR is
+triggered for "B".
+
+- "C:*F": Both prefer "C" from the second group tuple "C:D", so an HRR is
+triggered for "C".
+
+- "C:*D": Even though both prefer "C" over "D", the server will accept
+the key share for "D". Within a tuple, existing keyshares trump preference
+order.
+
+- "*C:*D": The server accepts the "C" key share.
+
+- "F": Even though it is not prepended with a "*", the client will send a key
+share for "F". The server will then accept the key share for "F".
+
+- "*E:C:A": The server prefers "A" from the "A:B" group tuple, so an HRR is
+triggered for "A".
+
+- "*E:B:*A": The server uses the key share for "A".
+
+Here are some examples where setting server/client preference will change the
+result:
+
+- "*D:*C"
+  - Client preference: The server uses the key share for "D".
+  - Server preference: The server uses the key share for "C".
+
+- "B:A:*C"
+  - Client preference: The server triggers an HRR for "B". For the server,
+"A" and "B" are considered comparable in security. But because the client
+prefers "B", the server will trigger an HRR for "B".
+  - Server preference: The server triggers an HRR for "A".
+
 =head1 SEE ALSO
 
 L<ssl(7)>,
-L<SSL_CTX_add_extra_chain_cert(3)>
+L<SSL_CTX_add_extra_chain_cert(3)>,
+L<SSL_get0_group_name(3)>
 
 =head1 HISTORY
 
@@ -279,6 +330,19 @@ SSL_set1_groups_list() was added in OpenSSL 3.3.
 
 Support for B<ML-KEM> was added in OpenSSL 3.5.
 
+OpenSSL 3.5 also introduces support for three I<hybrid> ECDH PQ key exchange
+TLS groups: B<X25519MLKEM768>, B<SecP256r1MLKEM768> and
+B<SecP384r1MLKEM1024>.
+They offer CPU performance comparable to the associated ECDH group, though at
+the cost of significantly larger key exchange messages.
+The third group, B<SecP384r1MLKEM1024> is substantially more CPU-intensive,
+largely as a result of the high CPU cost of ECDH for the underlying B<P-384>
+group.
+Also its key exchange messages at close to 1700 bytes are larger than the
+roughly 1200 bytes for the first two groups.
+
+As of OpenSSL 3.5 key exchange group names are case-insensitive.
+
 B<SSL_CTX_get0_implemented_groups> was first implemented in OpenSSL 3.5.
 
 Earlier versions of this document described the list as a preference order.
@@ -287,7 +351,7 @@ supported groups as comparable in security.
 
 =head1 COPYRIGHT
 
-Copyright 2013-2024 The OpenSSL Project Authors. All Rights Reserved.
+Copyright 2013-2025 The OpenSSL Project Authors. All Rights Reserved.
 
 Licensed under the Apache License 2.0 (the "License").  You may not use
 this file except in compliance with the License.  You can obtain a copy

@@ -131,6 +131,7 @@ shutdown
 sigaction
 sleep
 socket
+socketpair
 sprintf
 stderr
 stdin
@@ -144,6 +145,7 @@ strdup
 strlen
 strncmp
 strncpy
+strpbrk
 strrchr
 strspn
 strstr

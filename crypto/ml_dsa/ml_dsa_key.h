@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2024-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -34,8 +34,7 @@ struct ml_dsa_key_st {
     uint8_t *pub_encoding;
     uint8_t *priv_encoding;
     uint8_t *seed;
-    int retain_seed;
-    int prefer_seed;
+    int prov_flags;
 
     /*
      * t1 is the Polynomial encoding of the 10 MSB of each coefficient of the

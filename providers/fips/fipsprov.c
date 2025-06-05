@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -17,6 +17,7 @@
 #include <openssl/proverr.h>
 #include <openssl/indicator.h>
 #include "internal/cryptlib.h"
+#include "internal/provider.h"
 #include "prov/implementations.h"
 #include "prov/names.h"
 #include "prov/provider_ctx.h"
@@ -354,6 +355,24 @@ static const OSSL_ALGORITHM_CAPABLE fips_ciphers[] = {
          ossl_cipher_capable_aes_cbc_hmac_sha256),
     ALGC(PROV_NAMES_AES_256_CBC_HMAC_SHA256, ossl_aes256cbc_hmac_sha256_functions,
          ossl_cipher_capable_aes_cbc_hmac_sha256),
+    ALGC(PROV_NAMES_AES_128_CBC_HMAC_SHA1_ETM, ossl_aes128cbc_hmac_sha1_etm_functions,
+         ossl_cipher_capable_aes_cbc_hmac_sha1_etm),
+    ALGC(PROV_NAMES_AES_192_CBC_HMAC_SHA1_ETM, ossl_aes192cbc_hmac_sha1_etm_functions,
+         ossl_cipher_capable_aes_cbc_hmac_sha1_etm),
+    ALGC(PROV_NAMES_AES_256_CBC_HMAC_SHA1_ETM, ossl_aes256cbc_hmac_sha1_etm_functions,
+         ossl_cipher_capable_aes_cbc_hmac_sha1_etm),
+    ALGC(PROV_NAMES_AES_128_CBC_HMAC_SHA256_ETM, ossl_aes128cbc_hmac_sha256_etm_functions,
+         ossl_cipher_capable_aes_cbc_hmac_sha256_etm),
+    ALGC(PROV_NAMES_AES_192_CBC_HMAC_SHA256_ETM, ossl_aes192cbc_hmac_sha256_etm_functions,
+         ossl_cipher_capable_aes_cbc_hmac_sha256_etm),
+    ALGC(PROV_NAMES_AES_256_CBC_HMAC_SHA256_ETM, ossl_aes256cbc_hmac_sha256_etm_functions,
+         ossl_cipher_capable_aes_cbc_hmac_sha256_etm),
+    ALGC(PROV_NAMES_AES_128_CBC_HMAC_SHA512_ETM, ossl_aes128cbc_hmac_sha512_etm_functions,
+         ossl_cipher_capable_aes_cbc_hmac_sha512_etm),
+    ALGC(PROV_NAMES_AES_192_CBC_HMAC_SHA512_ETM, ossl_aes192cbc_hmac_sha512_etm_functions,
+         ossl_cipher_capable_aes_cbc_hmac_sha512_etm),
+    ALGC(PROV_NAMES_AES_256_CBC_HMAC_SHA512_ETM, ossl_aes256cbc_hmac_sha512_etm_functions,
+         ossl_cipher_capable_aes_cbc_hmac_sha512_etm),
 #ifndef OPENSSL_NO_DES
     ALG(PROV_NAMES_DES_EDE3_ECB, ossl_tdes_ede3_ecb_functions),
     ALG(PROV_NAMES_DES_EDE3_CBC, ossl_tdes_ede3_cbc_functions),
@@ -500,6 +519,32 @@ static const OSSL_ALGORITHM fips_signature[] = {
     { PROV_NAMES_CMAC, FIPS_DEFAULT_PROPERTIES,
       ossl_mac_legacy_cmac_signature_functions },
 #endif
+#ifndef OPENSSL_NO_SLH_DSA
+    { PROV_NAMES_SLH_DSA_SHA2_128S, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_sha2_128s_signature_functions, PROV_DESCS_SLH_DSA_SHA2_128S },
+    { PROV_NAMES_SLH_DSA_SHA2_128F, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_sha2_128f_signature_functions, PROV_DESCS_SLH_DSA_SHA2_128F },
+    { PROV_NAMES_SLH_DSA_SHA2_192S, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_sha2_192s_signature_functions, PROV_DESCS_SLH_DSA_SHA2_192S },
+    { PROV_NAMES_SLH_DSA_SHA2_192F, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_sha2_192f_signature_functions, PROV_DESCS_SLH_DSA_SHA2_192F },
+    { PROV_NAMES_SLH_DSA_SHA2_256S, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_sha2_256s_signature_functions, PROV_DESCS_SLH_DSA_SHA2_256S },
+    { PROV_NAMES_SLH_DSA_SHA2_256F, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_sha2_256f_signature_functions, PROV_DESCS_SLH_DSA_SHA2_256F },
+    { PROV_NAMES_SLH_DSA_SHAKE_128S, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_shake_128s_signature_functions, PROV_DESCS_SLH_DSA_SHAKE_128S },
+    { PROV_NAMES_SLH_DSA_SHAKE_128F, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_shake_128f_signature_functions, PROV_DESCS_SLH_DSA_SHAKE_128F },
+    { PROV_NAMES_SLH_DSA_SHAKE_192S, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_shake_192s_signature_functions, PROV_DESCS_SLH_DSA_SHAKE_192S },
+    { PROV_NAMES_SLH_DSA_SHAKE_192F, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_shake_192f_signature_functions, PROV_DESCS_SLH_DSA_SHAKE_192F },
+    { PROV_NAMES_SLH_DSA_SHAKE_256S, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_shake_256s_signature_functions, PROV_DESCS_SLH_DSA_SHAKE_256S },
+    { PROV_NAMES_SLH_DSA_SHAKE_256F, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_shake_256f_signature_functions, PROV_DESCS_SLH_DSA_SHAKE_256F },
+#endif /* OPENSSL_NO_SLH_DSA */
     { NULL, NULL, NULL }
 };
 
@@ -593,6 +638,32 @@ static const OSSL_ALGORITHM fips_keymgmt[] = {
       PROV_DESCS_SecP384r1MLKEM1024 },
 # endif
 #endif
+#ifndef OPENSSL_NO_SLH_DSA
+    { PROV_NAMES_SLH_DSA_SHA2_128S, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_sha2_128s_keymgmt_functions, PROV_DESCS_SLH_DSA_SHA2_128S },
+    { PROV_NAMES_SLH_DSA_SHA2_128F, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_sha2_128f_keymgmt_functions, PROV_DESCS_SLH_DSA_SHA2_128F },
+    { PROV_NAMES_SLH_DSA_SHA2_192S, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_sha2_192s_keymgmt_functions, PROV_DESCS_SLH_DSA_SHA2_192S },
+    { PROV_NAMES_SLH_DSA_SHA2_192F, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_sha2_192f_keymgmt_functions, PROV_DESCS_SLH_DSA_SHA2_192F },
+    { PROV_NAMES_SLH_DSA_SHA2_256S, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_sha2_256s_keymgmt_functions, PROV_DESCS_SLH_DSA_SHA2_256S },
+    { PROV_NAMES_SLH_DSA_SHA2_256F, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_sha2_256f_keymgmt_functions, PROV_DESCS_SLH_DSA_SHA2_256F },
+    { PROV_NAMES_SLH_DSA_SHAKE_128S, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_shake_128s_keymgmt_functions, PROV_DESCS_SLH_DSA_SHAKE_128S },
+    { PROV_NAMES_SLH_DSA_SHAKE_128F, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_shake_128f_keymgmt_functions, PROV_DESCS_SLH_DSA_SHAKE_128F },
+    { PROV_NAMES_SLH_DSA_SHAKE_192S, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_shake_192s_keymgmt_functions, PROV_DESCS_SLH_DSA_SHAKE_192S },
+    { PROV_NAMES_SLH_DSA_SHAKE_192F, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_shake_192f_keymgmt_functions, PROV_DESCS_SLH_DSA_SHAKE_192F },
+    { PROV_NAMES_SLH_DSA_SHAKE_256S, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_shake_256s_keymgmt_functions, PROV_DESCS_SLH_DSA_SHAKE_256S },
+    { PROV_NAMES_SLH_DSA_SHAKE_256F, FIPS_DEFAULT_PROPERTIES,
+      ossl_slh_dsa_shake_256f_keymgmt_functions, PROV_DESCS_SLH_DSA_SHAKE_256F },
+#endif /* OPENSSL_NO_SLH_DSA */
     { NULL, NULL, NULL }
 };
 
@@ -832,6 +903,15 @@ int OSSL_provider_init_int(const OSSL_CORE_HANDLE *handle,
      * then memory leaks could otherwise occur.
      */
     if (!ossl_thread_register_fips(libctx))
+        goto err;
+
+    /*
+     * Ensure our internal provider is loaded. We use this whenever the FIPS
+     * provider internally uses the EVP API. We proactively load this now
+     * rather than waiting for lazy loading to ensure it is always present when
+     * we need it.
+     */
+    if (!ossl_provider_activate_fallbacks(libctx))
         goto err;
 
     /*

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2020-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -63,6 +63,7 @@
 struct extracted_param_data_st {
     int object_type;
     const char *data_type;
+    const char *input_type;
     const char *data_structure;
     const char *utf8_data;
     const void *octet_data;
@@ -115,6 +116,10 @@ int ossl_store_handle_load_result(const OSSL_PARAM params[], void *arg)
     if (p != NULL
         && !OSSL_PARAM_get_utf8_string_ptr(p, &helper_data.data_structure))
         return 0;
+    p = OSSL_PARAM_locate_const(params, OSSL_OBJECT_PARAM_INPUT_TYPE);
+    if (p != NULL
+        && !OSSL_PARAM_get_utf8_string_ptr(p, &helper_data.input_type))
+        return 0;
     p = OSSL_PARAM_locate_const(params, OSSL_OBJECT_PARAM_REFERENCE);
     if (p != NULL && !OSSL_PARAM_get_octet_string_ptr(p, &helper_data.ref,
                                                       &helper_data.ref_size))
@@ -148,8 +153,19 @@ int ossl_store_handle_load_result(const OSSL_PARAM params[], void *arg)
         goto err;
     ERR_pop_to_mark();
 
-    if (*v == NULL)
-        ERR_raise(ERR_LIB_OSSL_STORE, ERR_R_UNSUPPORTED);
+    if (*v == NULL) {
+        const char *hint = "";
+
+        if (!OSSL_PROVIDER_available(libctx, "default"))
+            hint = ":maybe need to load the default provider?";
+        if (provider != NULL)
+            ERR_raise_data(ERR_LIB_OSSL_STORE, ERR_R_UNSUPPORTED, "provider=%s%s",
+                           OSSL_PROVIDER_get0_name(provider), hint);
+        else if (hint[0] != '\0')
+            ERR_raise_data(ERR_LIB_OSSL_STORE, ERR_R_UNSUPPORTED, "%s", hint);
+        else
+            ERR_raise(ERR_LIB_OSSL_STORE, ERR_R_UNSUPPORTED);
+    }
 
     return (*v != NULL);
  err:
@@ -288,7 +304,7 @@ static EVP_PKEY *try_key_value(struct extracted_param_data_st *data,
     }
 
     decoderctx =
-        OSSL_DECODER_CTX_new_for_pkey(&pk, NULL, data->data_structure,
+        OSSL_DECODER_CTX_new_for_pkey(&pk, data->input_type, data->data_structure,
                                       data->data_type, selection, libctx,
                                       propq);
     (void)OSSL_DECODER_CTX_set_passphrase_cb(decoderctx, cb, cbarg);

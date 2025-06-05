@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2024-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -192,7 +192,8 @@ static const ML_KEM_VINFO vinfo_map[3] = {
         ML_KEM_512_RANK,
         ML_KEM_512_DU,
         ML_KEM_512_DV,
-        ML_KEM_512_SECBITS
+        ML_KEM_512_SECBITS,
+        ML_KEM_512_SECURITY_CATEGORY
     },
     {
         "ML-KEM-768",
@@ -208,7 +209,8 @@ static const ML_KEM_VINFO vinfo_map[3] = {
         ML_KEM_768_RANK,
         ML_KEM_768_DU,
         ML_KEM_768_DV,
-        ML_KEM_768_SECBITS
+        ML_KEM_768_SECBITS,
+        ML_KEM_768_SECURITY_CATEGORY
     },
     {
         "ML-KEM-1024",
@@ -224,7 +226,8 @@ static const ML_KEM_VINFO vinfo_map[3] = {
         ML_KEM_1024_RANK,
         ML_KEM_1024_DU,
         ML_KEM_1024_DV,
-        ML_KEM_1024_SECBITS
+        ML_KEM_1024_SECBITS,
+        ML_KEM_1024_SECURITY_CATEGORY
     }
 };
 
@@ -1394,7 +1397,7 @@ int genkey(const uint8_t seed[ML_KEM_SEED_BYTES],
 
     /* Optionally save the |d| portion of the seed */
     key->d = key->z + ML_KEM_RANDOM_BYTES;
-    if (key->retain_seed) {
+    if (key->prov_flags & ML_KEM_KEY_RETAIN_SEED) {
         memcpy(key->d, seed, ML_KEM_RANDOM_BYTES);
     } else {
         OPENSSL_cleanse(key->d, ML_KEM_RANDOM_BYTES);
@@ -1402,7 +1405,7 @@ int genkey(const uint8_t seed[ML_KEM_SEED_BYTES],
     }
 
     ret = 1;
-  end:
+ end:
     OPENSSL_cleanse((void *)augmented_seed, ML_KEM_RANDOM_BYTES);
     OPENSSL_cleanse((void *)sigma, ML_KEM_RANDOM_BYTES);
     return ret;
@@ -1550,7 +1553,7 @@ ossl_ml_kem_key_reset(ML_KEM_KEY *key)
      */
     if (ossl_ml_kem_have_prvkey(key))
         OPENSSL_cleanse(key->s,
-                        key->vinfo->vector_bytes + 2 * ML_KEM_RANDOM_BYTES);
+                        key->vinfo->rank * sizeof(scalar) + 2 * ML_KEM_RANDOM_BYTES);
     OPENSSL_free(key->t);
     key->d = key->z = (uint8_t *)(key->s = key->m = key->t = NULL);
 }
@@ -1576,10 +1579,6 @@ const ML_KEM_VINFO *ossl_ml_kem_get_vinfo(int evp_type)
     return NULL;
 }
 
-/*
- * The |retain_seed| parameter indicates whether the seed should be retained
- * once the key is generated.
- */
 ML_KEM_KEY *ossl_ml_kem_key_new(OSSL_LIB_CTX *libctx, const char *properties,
                                 int evp_type)
 {
@@ -1594,8 +1593,7 @@ ML_KEM_KEY *ossl_ml_kem_key_new(OSSL_LIB_CTX *libctx, const char *properties,
 
     key->vinfo = vinfo;
     key->libctx = libctx;
-    key->prefer_seed = 1;
-    key->retain_seed = 1;
+    key->prov_flags = ML_KEM_KEY_PROV_FLAGS_DEFAULT;
     key->shake128_md = EVP_MD_fetch(libctx, "SHAKE128", properties);
     key->shake256_md = EVP_MD_fetch(libctx, "SHAKE256", properties);
     key->sha3_256_md = EVP_MD_fetch(libctx, "SHA3-256", properties);
@@ -1623,7 +1621,7 @@ ML_KEM_KEY *ossl_ml_kem_key_dup(const ML_KEM_KEY *key, int selection)
      * duplicated.
      */
     if (ossl_ml_kem_decoded_key(key))
-        return 0;
+        return NULL;
 
     if (key == NULL
         || (ret = OPENSSL_memdup(key, sizeof(*key))) == NULL)
@@ -1821,8 +1819,7 @@ int ossl_ml_kem_genkey(uint8_t *pubenc, size_t publen, ML_KEM_KEY *key)
         return 0;
     vinfo = key->vinfo;
 
-    if ((pubenc != NULL && publen != vinfo->pubkey_bytes)
-        || (mdctx = EVP_MD_CTX_new()) == NULL)
+    if (pubenc != NULL && publen != vinfo->pubkey_bytes)
         return 0;
 
     if (ossl_ml_kem_have_seed(key)) {
@@ -1833,6 +1830,9 @@ int ossl_ml_kem_genkey(uint8_t *pubenc, size_t publen, ML_KEM_KEY *key)
                                   key->vinfo->secbits) <= 0) {
         return 0;
     }
+
+    if ((mdctx = EVP_MD_CTX_new()) == NULL)
+        return 0;
 
     /*
      * Data derived from (d, z) defaults secret, and to avoid side-channel
@@ -1872,14 +1872,14 @@ int ossl_ml_kem_encap_seed(uint8_t *ctext, size_t clen,
     EVP_MD_CTX *mdctx;
     int ret = 0;
 
-    if (!ossl_ml_kem_have_pubkey(key))
+    if (key == NULL || !ossl_ml_kem_have_pubkey(key))
         return 0;
     vinfo = key->vinfo;
 
     if (ctext == NULL || clen != vinfo->ctext_bytes
         || shared_secret == NULL || slen != ML_KEM_SHARED_SECRET_BYTES
         || entropy == NULL || elen != ML_KEM_RANDOM_BYTES
-        || key == NULL || (mdctx = EVP_MD_CTX_new()) == NULL)
+        || (mdctx = EVP_MD_CTX_new()) == NULL)
         return 0;
     /*
      * Data derived from the encap entropy defaults secret, and to avoid
@@ -1953,8 +1953,8 @@ int ossl_ml_kem_decap(uint8_t *shared_secret, size_t slen,
     if (shared_secret == NULL || slen != ML_KEM_SHARED_SECRET_BYTES
         || ctext == NULL || clen != vinfo->ctext_bytes
         || (mdctx = EVP_MD_CTX_new()) == NULL) {
-        RAND_bytes_ex(key->libctx, shared_secret,
-                      ML_KEM_SHARED_SECRET_BYTES, vinfo->secbits);
+        (void)RAND_bytes_ex(key->libctx, shared_secret,
+                            ML_KEM_SHARED_SECRET_BYTES, vinfo->secbits);
         return 0;
     }
 #if defined(OPENSSL_CONSTANT_TIME_VALIDATION)

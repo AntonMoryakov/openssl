@@ -1,5 +1,5 @@
 /*
- * Copyright 1995-2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -86,6 +86,18 @@
 # define EVP_PKEY_ML_DSA_44 NID_ML_DSA_44
 # define EVP_PKEY_ML_DSA_65 NID_ML_DSA_65
 # define EVP_PKEY_ML_DSA_87 NID_ML_DSA_87
+# define EVP_PKEY_SLH_DSA_SHA2_128S NID_SLH_DSA_SHA2_128s
+# define EVP_PKEY_SLH_DSA_SHA2_128F NID_SLH_DSA_SHA2_128f
+# define EVP_PKEY_SLH_DSA_SHA2_192S NID_SLH_DSA_SHA2_192s
+# define EVP_PKEY_SLH_DSA_SHA2_192F NID_SLH_DSA_SHA2_192f
+# define EVP_PKEY_SLH_DSA_SHA2_256S NID_SLH_DSA_SHA2_256s
+# define EVP_PKEY_SLH_DSA_SHA2_256F NID_SLH_DSA_SHA2_256f
+# define EVP_PKEY_SLH_DSA_SHAKE_128S NID_SLH_DSA_SHAKE_128s
+# define EVP_PKEY_SLH_DSA_SHAKE_128F NID_SLH_DSA_SHAKE_128f
+# define EVP_PKEY_SLH_DSA_SHAKE_192S NID_SLH_DSA_SHAKE_192s
+# define EVP_PKEY_SLH_DSA_SHAKE_192F NID_SLH_DSA_SHAKE_192f
+# define EVP_PKEY_SLH_DSA_SHAKE_256S NID_SLH_DSA_SHAKE_256s
+# define EVP_PKEY_SLH_DSA_SHAKE_256F NID_SLH_DSA_SHAKE_256f
 
 /* Special indicator that the object is uniquely provider side */
 # define EVP_PKEY_KEYMGMT -1
@@ -364,6 +376,7 @@ OSSL_DEPRECATEDIN_3_0 int
 /* For supplementary wrap cipher support */
 # define         EVP_CIPH_FLAG_GET_WRAP_CIPHER   0x4000000
 # define         EVP_CIPH_FLAG_INVERSE_CIPHER    0x8000000
+# define         EVP_CIPH_FLAG_ENC_THEN_MAC      0x10000000
 
 /*
  * Cipher context flag to indicate we can handle wrap mode: if allowed in
@@ -1358,6 +1371,7 @@ int EVP_PKEY_get_bits(const EVP_PKEY *pkey);
 # define EVP_PKEY_bits EVP_PKEY_get_bits
 int EVP_PKEY_get_security_bits(const EVP_PKEY *pkey);
 # define EVP_PKEY_security_bits EVP_PKEY_get_security_bits
+int EVP_PKEY_get_security_category(const EVP_PKEY *pkey);
 int EVP_PKEY_get_size(const EVP_PKEY *pkey);
 # define EVP_PKEY_size EVP_PKEY_get_size
 int EVP_PKEY_can_sign(const EVP_PKEY *pkey);
@@ -1445,6 +1459,7 @@ EVP_PKEY *d2i_AutoPrivateKey_ex(EVP_PKEY **a, const unsigned char **pp,
 EVP_PKEY *d2i_AutoPrivateKey(EVP_PKEY **a, const unsigned char **pp,
                              long length);
 int i2d_PrivateKey(const EVP_PKEY *a, unsigned char **pp);
+int i2d_PKCS8PrivateKey(const EVP_PKEY *a, unsigned char **pp);
 
 int i2d_KeyParams(const EVP_PKEY *a, unsigned char **pp);
 EVP_PKEY *d2i_KeyParams(int type, EVP_PKEY **a, const unsigned char **pp,
@@ -2280,8 +2295,8 @@ EVP_SKEY *EVP_SKEY_generate(OSSL_LIB_CTX *libctx, const char *skeymgmtname,
 EVP_SKEY *EVP_SKEY_import_raw_key(OSSL_LIB_CTX *libctx, const char *skeymgmtname,
                                   unsigned char *key, size_t keylen,
                                   const char *propquery);
-int EVP_SKEY_get_raw_key(const EVP_SKEY *skey, const unsigned char **key,
-                         size_t *len);
+int EVP_SKEY_get0_raw_key(const EVP_SKEY *skey, const unsigned char **key,
+                          size_t *len);
 const char *EVP_SKEY_get0_key_id(const EVP_SKEY *skey);
 int EVP_SKEY_export(const EVP_SKEY *skey, int selection,
                     OSSL_CALLBACK *export_cb, void *export_cbarg);

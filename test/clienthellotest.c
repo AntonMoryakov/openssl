@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2015-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -98,6 +98,10 @@ static int test_client_hello(int currtest)
         SSL_CTX_set_options(ctx, SSL_OP_TLSEXT_PADDING);
         /* Make sure we get a consistent size across TLS versions */
         SSL_CTX_clear_options(ctx, SSL_OP_ENABLE_MIDDLEBOX_COMPAT);
+        /* Avoid large keyshares */
+        if (!TEST_true(SSL_CTX_set1_groups_list(ctx,
+                       "?X25519:?secp256r1:?ffdhe2048:?ffdhe3072")))
+            goto end;
         /*
          * Add some dummy ALPN protocols so that the ClientHello is at least
          * F5_WORKAROUND_MIN_MSG_LEN bytes long - meaning padding will be

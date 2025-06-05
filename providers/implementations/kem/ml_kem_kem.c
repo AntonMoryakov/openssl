@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2024-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -206,7 +206,7 @@ static int ml_kem_encapsulate(void *vctx, unsigned char *ctext, size_t *clen,
     else
         ret = ossl_ml_kem_encap_rand(ctext, encap_clen, shsec, encap_slen, key);
 
-  end:
+ end:
     /*
      * One shot entropy, each encapsulate call must either provide a new
      * "ikmE", or else will use a random value.  If a caller sets an explicit

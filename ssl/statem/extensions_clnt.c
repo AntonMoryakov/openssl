@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2016-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -10,6 +10,7 @@
 #include <openssl/ocsp.h>
 #include "../ssl_local.h"
 #include "internal/cryptlib.h"
+#include "internal/ssl_unwrap.h"
 #include "statem_local.h"
 
 EXT_RETURN tls_construct_ctos_renegotiate(SSL_CONNECTION *s, WPACKET *pkt,
@@ -328,8 +329,22 @@ EXT_RETURN tls_construct_ctos_sig_algs(SSL_CONNECTION *s, WPACKET *pkt,
     size_t salglen;
     const uint16_t *salg;
 
-    if (!SSL_CLIENT_USE_SIGALGS(s))
+    /*
+     * This used both in the initial hello and as part of renegotiation,
+     * in the latter case, the client version may be already set and may
+     * be lower than that initially offered in `client_version`.
+     */
+    if (!SSL_CONNECTION_IS_DTLS(s)) {
+        if (s->client_version < TLS1_2_VERSION
+            || (s->ssl.method->version != TLS_ANY_VERSION
+                && s->version < TLS1_2_VERSION))
         return EXT_RETURN_NOT_SENT;
+    } else {
+        if (DTLS_VERSION_LT(s->client_version, DTLS1_2_VERSION)
+            || (s->ssl.method->version != DTLS_ANY_VERSION
+                && DTLS_VERSION_LT(s->version, DTLS1_2_VERSION)))
+        return EXT_RETURN_NOT_SENT;
+    }
 
     salglen = tls12_get_psigalgs(s, 1, &salg);
     if (!WPACKET_put_bytes_u16(pkt, TLSEXT_TYPE_signature_algorithms)
@@ -632,15 +647,16 @@ static int add_key_share(SSL_CONNECTION *s, WPACKET *pkt, unsigned int group_id,
     EVP_PKEY *key_share_key = NULL;
     size_t encodedlen;
 
-    if (s->s3.tmp.pkey != NULL && loop_num == 0) {
-        if (!ossl_assert(s->hello_retry_request == SSL_HRR_PENDING)) {
+    if (loop_num < s->s3.tmp.num_ks_pkey) {
+        if (!ossl_assert(s->hello_retry_request == SSL_HRR_PENDING)
+            || !ossl_assert(s->s3.tmp.ks_pkey[loop_num] != NULL)) {
             SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
             return 0;
         }
         /*
          * Could happen if we got an HRR that wasn't requesting a new key_share
          */
-        key_share_key = s->s3.tmp.pkey;
+        key_share_key = s->s3.tmp.ks_pkey[loop_num];
     } else {
         key_share_key = ssl_generate_pkey_group(s, group_id);
         if (key_share_key == NULL) {
@@ -672,13 +688,14 @@ static int add_key_share(SSL_CONNECTION *s, WPACKET *pkt, unsigned int group_id,
     /* We ensure in t1_lib.c that the loop number does not exceed OPENSSL_CLIENT_MAX_KEY_SHARES */
     s->s3.tmp.ks_pkey[loop_num] = key_share_key;
     s->s3.tmp.ks_group_id[loop_num] = group_id;
-    s->s3.tmp.num_ks_pkey++;
+    if (loop_num >= s->s3.tmp.num_ks_pkey)
+        s->s3.tmp.num_ks_pkey++;
 
     OPENSSL_free(encoded_pubkey);
 
     return 1;
  err:
-    if (s->s3.tmp.pkey == NULL)
+    if (key_share_key != s->s3.tmp.ks_pkey[loop_num])
         EVP_PKEY_free(key_share_key);
     OPENSSL_free(encoded_pubkey);
     return 0;
@@ -720,10 +737,10 @@ EXT_RETURN tls_construct_ctos_key_share(SSL_CONNECTION *s, WPACKET *pkt,
 
     /* Add key shares */
 
-    s->s3.tmp.num_ks_pkey = 0;
-
-    if (s->s3.group_id != 0) {
+    if (s->s3.group_id != 0 && s->s3.tmp.pkey == NULL) {
+        /* new, single key share */
         group_id = s->s3.group_id;
+        s->s3.tmp.num_ks_pkey = 0;
         if (!add_key_share(s, pkt, group_id, 0)) {
             /* SSLfatal() already called */
             return EXT_RETURN_FAIL;

@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2018-2024 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2018-2025 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the Apache License 2.0 (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -11,7 +11,7 @@ use warnings;
 
 use File::Spec;
 use File::Basename;
-use OpenSSL::Test qw/:DEFAULT srctop_file ok_nofips/;
+use OpenSSL::Test qw/:DEFAULT srctop_file ok_nofips with/;
 use OpenSSL::Test::Utils;
 use File::Compare qw/compare_text compare/;
 
@@ -68,9 +68,13 @@ SKIP: {
                   '-inkey', srctop_file('test', 'certs', 'server-ed25519-cert.pem'),
                   '-sigfile', 'Ed25519.sig']))),
                   "Verify an Ed25519 signature against a piece of data");
-    ok(!run(app(([ 'openssl', 'pkeyutl', '-verifyrecover', '-in', 'Ed25519.sig',
-                   '-inkey', srctop_file('test', 'certs', 'server-ed25519-key.pem')]))),
-       "Cannot use -verifyrecover with EdDSA");
+    #Check for failure return code
+    with({ exit_checker => sub { return shift == 1; } },
+        sub {
+            ok(run(app(([ 'openssl', 'pkeyutl', '-verifyrecover', '-in', 'Ed25519.sig',
+                          '-inkey', srctop_file('test', 'certs', 'server-ed25519-key.pem')]))),
+               "Cannot use -verifyrecover with EdDSA");
+        });
 
     # Ed448
     ok(run(app(([ 'openssl', 'pkeyutl', '-sign', '-in',
@@ -123,8 +127,12 @@ sub tsignverify {
              '-out', $sigfile,
              '-in', $data_to_sign);
     push(@args, @extraopts);
-    ok(!run(app([@args])),
-       $testtext.": Checking that mismatching keyform fails");
+    #Check for failure return code
+    with({ exit_checker => sub { return shift == 1; } },
+        sub {
+            ok(run(app([@args])),
+               $testtext.": Checking that mismatching keyform fails");
+        });
 
     @args = ('openssl', 'pkeyutl', '-verify',
              '-inkey', $privkey,
@@ -148,8 +156,12 @@ sub tsignverify {
              '-sigfile', $sigfile,
              '-in', $other_data);
     push(@args, @extraopts);
-    ok(!run(app([@args])),
-       $testtext.": Expect failure verifying mismatching data");
+    #Check for failure return code
+    with({ exit_checker => sub { return shift == 1; } },
+        sub {
+            ok(run(app([@args])),
+               $testtext.": Expect failure verifying mismatching data");
+        });
 }
 
 SKIP: {
@@ -241,17 +253,17 @@ SKIP: {
         if disabled("rsa"); # Note "rsa" isn't (yet?) disablable.
 
     # Self-compat
-    ok(run(app(([ 'openssl', 'pkeyutl', '-encap', '-kemop', 'RSASVE',
+    ok(run(app(([ 'openssl', 'pkeyutl', '-encap',
                   '-inkey', srctop_file('test', 'testrsa2048pub.pem'),
                   '-out', 'encap_out.bin', '-secret', 'secret.bin']))),
                   "RSA pubkey encapsulation");
-    ok(run(app(([ 'openssl', 'pkeyutl', '-decap', '-kemop', 'RSASVE',
+    ok(run(app(([ 'openssl', 'pkeyutl', '-decap',
                   '-inkey', srctop_file('test', 'testrsa2048.pem'),
                   '-in', 'encap_out.bin', '-secret', 'decap_secret.bin']))),
                   "RSA pubkey decapsulation");
     is(compare("secret.bin", "decap_secret.bin"), 0, "Secret is correctly decapsulated");
 
-    # Legacy CLI with decap output written to '-out'
+    # Legacy CLI with decap output written to '-out' and with '-kemop` specified
     ok(run(app(([ 'openssl', 'pkeyutl', '-decap', '-kemop', 'RSASVE',
                   '-inkey', srctop_file('test', 'testrsa2048.pem'),
                   '-in', 'encap_out.bin', '-out', 'decap_out.bin']))),

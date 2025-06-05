@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2024-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -92,7 +92,7 @@ mlx_kem_key_new(unsigned int v, OSSL_LIB_CTX *libctx, char *propq)
     key->propq = propq;
     return key;
 
-  err:
+ err:
     OPENSSL_free(propq);
     return NULL;
 }
@@ -310,7 +310,7 @@ static int mlx_kem_export(void *vkey, int selection, OSSL_CALLBACK *param_cb,
     ret = param_cb(params, cbarg);
     OSSL_PARAM_free(params);
 
-err:
+ err:
     OSSL_PARAM_BLD_free(tmpl);
     OPENSSL_secure_clear_free(sub_arg.prvenc, prvlen);
     OPENSSL_free(sub_arg.pubenc);
@@ -369,7 +369,7 @@ load_slot(OSSL_LIB_CTX *libctx, const char *propq, const char *pname,
     if (EVP_PKEY_fromdata(ctx, ppkey, selection, parr) > 0)
         ret = 1;
 
-  err:
+ err:
     EVP_PKEY_CTX_free(ctx);
     return ret;
 }
@@ -399,7 +399,7 @@ load_keys(MLX_KEY *key,
     key->state = prvlen ? MLX_HAVE_PRVKEY : MLX_HAVE_PUBKEY;
     return 1;
 
-  err:
+ err:
     EVP_PKEY_free(key->mkey);
     EVP_PKEY_free(key->xkey);
     key->xkey = key->mkey = NULL;
@@ -478,6 +478,7 @@ static const OSSL_PARAM *mlx_kem_gettable_params(void *provctx)
         OSSL_PARAM_int(OSSL_PKEY_PARAM_BITS, NULL),
         OSSL_PARAM_int(OSSL_PKEY_PARAM_SECURITY_BITS, NULL),
         OSSL_PARAM_int(OSSL_PKEY_PARAM_MAX_SIZE, NULL),
+        OSSL_PARAM_int(OSSL_PKEY_PARAM_SECURITY_CATEGORY, NULL),
         OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY, NULL, 0),
         OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PRIV_KEY, NULL, 0),
         OSSL_PARAM_END
@@ -508,6 +509,12 @@ static int mlx_kem_get_params(void *vkey, OSSL_PARAM params[])
     p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_SECURITY_BITS);
     if (p != NULL)
         if (!OSSL_PARAM_set_int(p, key->minfo->secbits))
+            return 0;
+
+    /* The reported security category are those of the ML-KEM key */
+    p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_SECURITY_CATEGORY);
+    if (p != NULL)
+        if (!OSSL_PARAM_set_int(p, key->minfo->security_category))
             return 0;
 
     /* The ciphertext sizes are additive */
@@ -687,7 +694,7 @@ static void *mlx_kem_gen(void *vgctx, OSSL_CALLBACK *osslcb, void *cbarg)
 {
     PROV_ML_KEM_GEN_CTX *gctx = vgctx;
     MLX_KEY *key;
-    char *propq = gctx->propq;
+    char *propq;
 
     if (gctx == NULL
         || (gctx->selection & OSSL_KEYMGMT_SELECT_KEYPAIR) ==
@@ -695,6 +702,7 @@ static void *mlx_kem_gen(void *vgctx, OSSL_CALLBACK *osslcb, void *cbarg)
         return NULL;
 
     /* Lose ownership of propq */
+    propq = gctx->propq;
     gctx->propq = NULL;
     if ((key = mlx_kem_key_new(gctx->evp_type, gctx->libctx, propq)) == NULL)
         return NULL;
@@ -735,6 +743,21 @@ static void *mlx_kem_dup(const void *vkey, int selection)
     if (!ossl_prov_is_running()
         || (ret = OPENSSL_memdup(key, sizeof(*ret))) == NULL)
         return NULL;
+
+    if (ret->propq != NULL
+        && (ret->propq = OPENSSL_strdup(ret->propq)) == NULL) {
+        OPENSSL_free(ret);
+        return NULL;
+    }
+
+    /* Absent key material, nothing left to do */
+    if (ret->mkey == NULL) {
+        if (ret->xkey == NULL)
+            return ret;
+        /* Fail if the source key is an inconsistent state */
+        OPENSSL_free(ret);
+        return NULL;
+    }
 
     switch (selection & OSSL_KEYMGMT_SELECT_KEYPAIR) {
     case 0:

@@ -13,6 +13,7 @@ use warnings;
 use File::Spec;
 use File::Copy;
 use File::Compare qw/compare_text compare/;
+use IO::File;
 use OpenSSL::Glob;
 use OpenSSL::Test qw/:DEFAULT data_file srctop_file bldtop_dir/;
 use OpenSSL::Test::Utils;
@@ -25,7 +26,7 @@ my @formats = qw(seed-priv priv-only seed-only oqskeypair bare-seed bare-priv);
 plan skip_all => "ML-KEM isn't supported in this build"
     if disabled("ml-kem");
 
-plan tests => @algs * (23 + 10 * @formats);
+plan tests => @algs * (25 + 10 * @formats);
 my $seed = join ("", map {sprintf "%02x", $_} (0..63));
 my $weed = join ("", map {sprintf "%02x", $_} (1..64));
 my $ikme = join ("", map {sprintf "%02x", $_} (0..31));
@@ -59,7 +60,7 @@ foreach my $alg (@algs) {
         ok(run(app(['openssl', 'genpkey', '-out', $pem,
                     '-pkeyopt', "hexseed:$seed", '-algorithm', "ml-kem-$alg",
                     '-provparam', "ml-kem.output_formats=$f"])));
-        ok(!compare($in, $pem),
+        ok(!compare_text($in, $pem),
             sprintf("prvkey PEM match: %s, %s", $alg, $f));
 
         ok(run(app(['openssl', 'pkey', '-in', $in, '-noout',
@@ -97,7 +98,7 @@ foreach my $alg (@algs) {
     ok(run(app(['openssl', 'genpkey', '-provparam', 'ml-kem.retain_seed=no',
                 '-algorithm', "ml-kem-$alg", '-pkeyopt', "hexseed:$seed",
                 '-out', $seedless])));
-    ok(!compare(data_file($formats{'priv-only'}), $seedless),
+    ok(!compare_text(data_file($formats{'priv-only'}), $seedless),
         sprintf("seedless via cli key match: %s", $alg));
     {
         local $ENV{'OPENSSL_CONF'} = data_file("ml-kem.cnf");
@@ -106,14 +107,14 @@ foreach my $alg (@algs) {
         ok(run(app(['openssl', 'genpkey',
                     '-algorithm', "ml-kem-$alg", '-pkeyopt', "hexseed:$seed",
                     '-out', $seedless])));
-        ok(!compare(data_file($formats{'priv-only'}), $seedless),
+        ok(!compare_text(data_file($formats{'priv-only'}), $seedless),
             sprintf("seedless via config match: %s", $alg));
 
         my $seedfull = sprintf("seedfull-%s.gen.conf+cli.pem", $alg);
         ok(run(app(['openssl', 'genpkey', '-provparam', 'ml-kem.retain_seed=yes',
                     '-algorithm', "ml-kem-$alg", '-pkeyopt', "hexseed:$seed",
                     '-out', $seedfull])));
-        ok(!compare(data_file($formats{'seed-priv'}), $seedfull),
+        ok(!compare_text(data_file($formats{'seed-priv'}), $seedfull),
             sprintf("seedfull via cli vs. conf key match: %s", $alg));
     }
 
@@ -122,7 +123,7 @@ foreach my $alg (@algs) {
     $seedless = sprintf("seedless-%s.dec.cli.pem", $alg);
     ok(run(app(['openssl', 'pkey', '-provparam', 'ml-kem.retain_seed=no',
                 '-in', data_file($formats{'seed-only'}), '-out', $seedless])));
-    ok(!compare(data_file($formats{'priv-only'}), $seedless),
+    ok(!compare_text(data_file($formats{'priv-only'}), $seedless),
         sprintf("seedless via provparam key match: %s", $alg));
     {
         local $ENV{'OPENSSL_CONF'} = data_file("ml-kem.cnf");
@@ -130,13 +131,13 @@ foreach my $alg (@algs) {
         $seedless = sprintf("seedless-%s.dec.cnf.pem", $alg);
         ok(run(app(['openssl', 'pkey',
                     '-in', data_file($formats{'seed-only'}), '-out', $seedless])));
-        ok(!compare(data_file($formats{'priv-only'}), $seedless),
+        ok(!compare_text(data_file($formats{'priv-only'}), $seedless),
             sprintf("seedless via config match: %s", $alg));
 
         my $seedfull = sprintf("seedfull-%s.dec.conf+cli.pem", $alg);
         ok(run(app(['openssl', 'pkey', '-provparam', 'ml-kem.retain_seed=yes',
                     '-in', data_file($formats{'seed-only'}), '-out', $seedfull])));
-        ok(!compare(data_file($formats{'seed-priv'}), $seedfull),
+        ok(!compare_text(data_file($formats{'seed-priv'}), $seedfull),
             sprintf("seedfull via cli vs. conf key match: %s", $alg));
     }
 
@@ -145,7 +146,7 @@ foreach my $alg (@algs) {
     my $privpref = sprintf("privpref-%s.dec.cli.pem", $alg);
     ok(run(app(['openssl', 'pkey', '-provparam', 'ml-kem.prefer_seed=no',
                 '-in', data_file($formats{'seed-priv'}), '-out', $privpref])));
-    ok(!compare(data_file($formats{'priv-only'}), $privpref),
+    ok(!compare_text(data_file($formats{'priv-only'}), $privpref),
         sprintf("seed non-preference via provparam key match: %s", $alg));
 
     # (2 * @formats) tests
@@ -156,39 +157,69 @@ foreach my $alg (@algs) {
         my $out = sprintf("prv-%s-%s.txt", $alg, $f);
         ok(run(app(['openssl', 'pkey', '-in', data_file($k),
                     '-noout', '-text', '-out', $out])));
-        ok(!compare(data_file($txt), $out),
+        ok(!compare_text(data_file($txt), $out),
             sprintf("text form private key: %s with %s", $alg, $f));
     }
 
-    # (5 tests): Test import/load PCT failure
+    # (6 tests): Test import/load PCT failure
     my $real = sprintf('real-%s.der', $alg);
     my $fake = sprintf('fake-%s.der', $alg);
     my $mixt = sprintf('mixt-%s.der', $alg);
+    my $mash = sprintf('mash-%s.der', $alg);
     my $slen = $alg * 3 / 2; # Secret vector |s|
     my $plen = $slen + 64;   # Public |t|, |rho| and hash
     my $zlen = 32;           # FO implicit reject seed
     ok(run(app([qw(openssl genpkey -algorithm), "ml-kem-$alg",
-                qw(-provparam ml-kem.output_formats=bare-priv -pkeyopt),
-                "hexseed:$seed", qw(-outform DER -out), $real],
-                sprintf("create real private key: %s", $alg))));
+                qw(-provparam ml-kem.output_formats=seed-priv -pkeyopt),
+                "hexseed:$seed", qw(-outform DER -out), $real])),
+        sprintf("create real private key: %s", $alg));
     ok(run(app([qw(openssl genpkey -algorithm), "ml-kem-$alg",
-                qw(-provparam ml-kem.output_formats=bare-priv -pkeyopt),
-                "hexseed:$weed", qw(-outform DER -out), $fake],
-                sprintf("create fake private key: %s", $alg))));
-    my $realfh = IO::File->new($real, "r");
-    my $fakefh = IO::File->new($fake, "r");
+                qw(-provparam ml-kem.output_formats=seed-priv -pkeyopt),
+                "hexseed:$weed", qw(-outform DER -out), $fake])),
+        sprintf("create fake private key: %s", $alg));
+    my $realfh = IO::File->new($real, "<:raw");
+    my $fakefh = IO::File->new($fake, "<:raw");
     local $/ = undef;
     my $realder = <$realfh>;
     my $fakeder = <$fakefh>;
-    ok (length($realder) == 24 + $slen + $plen + $zlen
-        && length($fakeder) == 24 + $slen + $plen + $zlen);
-    my $mixtder = substr($realder, 0, 24 + $slen)
-        . substr($fakeder, 24 + $slen, $plen)
-        . substr($realder, 24 + $slen + $plen, $zlen);
-    my $mixtfh = IO::File->new($mixt, "w");
+    $realfh->close();
+    $fakefh->close();
+    #
+    # - 20 bytes PKCS8 fixed overhead,
+    # - 4 byte private key octet string tag + length
+    # - 4 byte seed + key sequence tag + length
+    #   - 2 byte seed tag + length
+    #     - 64 byte seed
+    #   - 4 byte key tag + length
+    #     - |dk| 's' vector
+    #     - |ek| public key ('t' vector || 'rho')
+    #     - implicit rejection 'z' seed component
+    #
+    my $svec_off = 28 + (2 + 64) + 4;
+    my $p8_len = $svec_off + $slen + $plen + $zlen;
+    ok((length($realder) == $p8_len && length($fakeder) == $p8_len),
+        sprintf("Got expected DER lengths of %s seed-priv key", $alg));
+    my $mixtder = substr($realder, 0, $svec_off + $slen)
+        . substr($fakeder, $svec_off + $slen, $plen)
+        . substr($realder, $svec_off + $slen + $plen, $zlen);
+    my $mixtfh = IO::File->new($mixt, ">:raw");
     print $mixtfh $mixtder;
-    ok(run(app([qw(openssl pkey -inform DER -noout -in), $real],
-               sprintf("accept valid keypair: %s", $alg))));
-    ok(!run(app([qw(openssl pkey -inform DER -noout -in), $mixt],
-                sprintf("reject real private and fake public: %s", $alg))));
+    $mixtfh->close();
+    ok(run(app([qw(openssl pkey -inform DER -noout -in), $real])),
+        sprintf("accept valid keypair: %s", $alg));
+    ok(!run(app([qw(openssl pkey -provparam ml-kem.prefer_seed=no),
+                 qw(-inform DER -noout -in), $mixt])),
+        sprintf("reject real private and fake public: %s", $alg));
+    ok(run(app([qw(openssl pkey -provparam ml-kem.prefer_seed=no),
+                 qw(-provparam ml-kem.import_pct_type=none),
+                 qw(-inform DER -noout -in), $mixt])),
+        sprintf("Absent PCT accept fake public: %s", $alg));
+    # Mutate the first byte of the |s| vector
+    my $mashder = $realder;
+    substr($mashder, $svec_off, 1) =~ s{(.)}{chr(ord($1)^1)}es;
+    my $mashfh = IO::File->new($mash, ">:raw");
+    print $mashfh $mashder;
+    $mashfh->close();
+    ok(!run(app([qw(openssl pkey -inform DER -noout -in), $mash])),
+        sprintf("reject real private and mutated public: %s", $alg));
 }

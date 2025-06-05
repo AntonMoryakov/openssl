@@ -1,5 +1,5 @@
 /*
- * Copyright 2016-2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2016-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -15,6 +15,7 @@
 #include <string.h>
 #include "internal/nelem.h"
 #include "internal/cryptlib.h"
+#include "internal/ssl_unwrap.h"
 #include "../ssl_local.h"
 #include "statem_local.h"
 
@@ -1735,11 +1736,14 @@ static int final_early_data(SSL_CONNECTION *s, unsigned int context, int sent)
 static int final_maxfragmentlen(SSL_CONNECTION *s, unsigned int context,
                                 int sent)
 {
+    if (s->session == NULL)
+        return 1;
+
     /* MaxFragmentLength defaults to disabled */
     if (s->session->ext.max_fragment_len_mode == TLSEXT_max_fragment_length_UNSPECIFIED)
         s->session->ext.max_fragment_len_mode = TLSEXT_max_fragment_length_DISABLED;
 
-    if (s->session && USE_MAX_FRAGMENT_LENGTH_EXT(s->session)) {
+    if (USE_MAX_FRAGMENT_LENGTH_EXT(s->session)) {
         s->rlayer.rrlmethod->set_max_frag_len(s->rlayer.rrl,
                                               GET_MAX_FRAGMENT_LENGTH(s->session));
         s->rlayer.wrlmethod->set_max_frag_len(s->rlayer.wrl,

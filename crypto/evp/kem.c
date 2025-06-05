@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2020-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -288,12 +288,13 @@ static EVP_KEM *evp_kem_new(OSSL_PROVIDER *prov)
     if (kem == NULL)
         return NULL;
 
-    if (!CRYPTO_NEW_REF(&kem->refcnt, 1)) {
+    if (!CRYPTO_NEW_REF(&kem->refcnt, 1)
+        || !ossl_provider_up_ref(prov)) {
+        CRYPTO_FREE_REF(&kem->refcnt);
         OPENSSL_free(kem);
         return NULL;
     }
     kem->prov = prov;
-    ossl_provider_up_ref(prov);
 
     return kem;
 }

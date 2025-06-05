@@ -803,6 +803,12 @@ EVP_R_PKEY_APPLICATION_ASN1_METHOD_ALREADY_REGISTERED:179:\
 	pkey application asn1 method already registered
 EVP_R_PRIVATE_KEY_DECODE_ERROR:145:private key decode error
 EVP_R_PRIVATE_KEY_ENCODE_ERROR:146:private key encode error
+EVP_R_PROVIDER_ASYM_CIPHER_FAILURE:232:provider asym cipher failure
+EVP_R_PROVIDER_ASYM_CIPHER_NOT_SUPPORTED:235:provider asym cipher not supported
+EVP_R_PROVIDER_KEYMGMT_FAILURE:233:provider keymgmt failure
+EVP_R_PROVIDER_KEYMGMT_NOT_SUPPORTED:236:provider keymgmt not supported
+EVP_R_PROVIDER_SIGNATURE_FAILURE:234:provider signature failure
+EVP_R_PROVIDER_SIGNATURE_NOT_SUPPORTED:237:provider signature not supported
 EVP_R_PUBLIC_KEY_NOT_RSA:106:public key not rsa
 EVP_R_SETTING_XOF_FAILED:227:setting xof failed
 EVP_R_SET_DEFAULT_PROPERTY_FAILURE:209:set default property failure
@@ -966,6 +972,7 @@ PEM_R_UNSUPPORTED_CIPHER:113:unsupported cipher
 PEM_R_UNSUPPORTED_ENCRYPTION:114:unsupported encryption
 PEM_R_UNSUPPORTED_KEY_COMPONENTS:126:unsupported key components
 PEM_R_UNSUPPORTED_PUBLIC_KEY_TYPE:110:unsupported public key type
+PEM_R_UNSUPPORTED_PVK_KEY_TYPE:133:unsupported pvk key type
 PKCS12_R_CALLBACK_FAILED:115:callback failed
 PKCS12_R_CANT_PACK_STRUCTURE:100:can't pack structure
 PKCS12_R_CONTENT_TYPE_NOT_DATA:121:content type not data
@@ -1431,6 +1438,7 @@ SSL_R_DECRYPTION_FAILED_OR_BAD_RECORD_MAC:281:\
 SSL_R_DH_KEY_TOO_SMALL:394:dh key too small
 SSL_R_DH_PUBLIC_VALUE_LENGTH_IS_WRONG:148:dh public value length is wrong
 SSL_R_DIGEST_CHECK_FAILED:149:digest check failed
+SSL_R_DOMAIN_USE_ONLY:422:domain use only
 SSL_R_DTLS_MESSAGE_TOO_BIG:334:dtls message too big
 SSL_R_DUPLICATE_COMPRESSION_ID:309:duplicate compression id
 SSL_R_ECC_CERT_NOT_FOR_SIGNING:318:ecc cert not for signing
@@ -1490,13 +1498,14 @@ SSL_R_LENGTH_TOO_LONG:404:length too long
 SSL_R_LENGTH_TOO_SHORT:160:length too short
 SSL_R_LIBRARY_BUG:274:library bug
 SSL_R_LIBRARY_HAS_NO_CIPHERS:161:library has no ciphers
+SSL_R_LISTENER_USE_ONLY:421:listener use only
 SSL_R_MAXIMUM_ENCRYPTED_PKTS_REACHED:395:maximum encrypted pkts reached
 SSL_R_MISSING_DSA_SIGNING_CERT:165:missing dsa signing cert
 SSL_R_MISSING_ECDSA_SIGNING_CERT:381:missing ecdsa signing cert
 SSL_R_MISSING_FATAL:256:missing fatal
 SSL_R_MISSING_PARAMETERS:290:missing parameters
 SSL_R_MISSING_PSK_KEX_MODES_EXTENSION:310:missing psk kex modes extension
-SSL_R_MISSING_QUIC_TLS_FUNCTIONS:421:missing quic tls functions
+SSL_R_MISSING_QUIC_TLS_FUNCTIONS:423:missing quic tls functions
 SSL_R_MISSING_RSA_CERTIFICATE:168:missing rsa certificate
 SSL_R_MISSING_RSA_ENCRYPTING_CERT:169:missing rsa encrypting cert
 SSL_R_MISSING_RSA_SIGNING_CERT:170:missing rsa signing cert

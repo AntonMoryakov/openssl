@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2019-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -1511,6 +1511,16 @@ static int provider_activate_fallbacks(struct provider_store_st *store)
     return ret;
 }
 
+int ossl_provider_activate_fallbacks(OSSL_LIB_CTX *ctx)
+{
+    struct provider_store_st *store = get_provider_store(ctx);
+
+    if (store == NULL)
+        return 0;
+
+    return provider_activate_fallbacks(store);
+}
+
 int ossl_provider_doall_activated(OSSL_LIB_CTX *ctx,
                                   int (*cb)(OSSL_PROVIDER *provider,
                                             void *cbdata),
@@ -1948,12 +1958,12 @@ const OSSL_ALGORITHM *ossl_provider_query_operation(const OSSL_PROVIDER *prov,
                 BIO_printf(trc_out,
                            "(provider %s) names %s, prop_def %s, desc %s\n",
                            prov->name,
-                           res->algorithm_names == NULL ? "none" :
-                           res->algorithm_names,
-                           res->property_definition == NULL ? "none" :
-                           res->property_definition,
-                           res->algorithm_description == NULL ? "none" :
-                           res->algorithm_description);
+                           idx->algorithm_names == NULL ? "none" :
+                           idx->algorithm_names,
+                           idx->property_definition == NULL ? "none" :
+                           idx->property_definition,
+                           idx->algorithm_description == NULL ? "none" :
+                           idx->algorithm_description);
             }
         } else {
             BIO_printf(trc_out, "(provider %s) query_operation failed\n", prov->name);
@@ -2421,6 +2431,7 @@ static void core_self_test_get_callback(OPENSSL_CORE_CTX *libctx,
     OSSL_SELF_TEST_get_callback((OSSL_LIB_CTX *)libctx, cb, cbarg);
 }
 
+# ifdef OPENSSL_NO_FIPS_JITTER
 static size_t rand_get_entropy(const OSSL_CORE_HANDLE *handle,
                                unsigned char **pout, int entropy,
                                size_t min_len, size_t max_len)
@@ -2428,6 +2439,31 @@ static size_t rand_get_entropy(const OSSL_CORE_HANDLE *handle,
     return ossl_rand_get_entropy((OSSL_LIB_CTX *)core_get_libctx(handle),
                                  pout, entropy, min_len, max_len);
 }
+# else
+/*
+ * OpenSSL FIPS providers prior to 3.2 call rand_get_entropy API from
+ * core, instead of the newer get_user_entropy. Newer API call honors
+ * runtime configuration of random seed source and can be configured
+ * to use os getranom() or another seed source, such as
+ * JITTER. However, 3.0.9 only calls this API. Note that no other
+ * providers known to use this, and it is core <-> provider only
+ * API. Public facing EVP and getrandom bytes already correctly honor
+ * runtime configuration for seed source. There are no other providers
+ * packaged in Wolfi, or even known to exist that use this api. Thus
+ * it is safe to say any caller of this API is in fact 3.0.9 FIPS
+ * provider. Also note that the passed in handle is invalid and cannot
+ * be safely dereferences in such cases. Due to a bug in FIPS
+ * providers 3.0.0, 3.0.8 and 3.0.9. See
+ * https://github.com/openssl/openssl/blob/master/doc/internal/man3/ossl_rand_get_entropy.pod#notes
+ */
+size_t ossl_rand_jitter_get_seed(unsigned char **, int, size_t, size_t);
+static size_t rand_get_entropy(const OSSL_CORE_HANDLE *handle,
+                               unsigned char **pout, int entropy,
+                               size_t min_len, size_t max_len)
+{
+    return ossl_rand_jitter_get_seed(pout, entropy, min_len, max_len);
+}
+# endif
 
 static size_t rand_get_user_entropy(const OSSL_CORE_HANDLE *handle,
                                     unsigned char **pout, int entropy,

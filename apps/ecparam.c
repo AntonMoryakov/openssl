@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2002-2025 The OpenSSL Project Authors. All Rights Reserved.
  * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
@@ -67,13 +67,11 @@ const OPTIONS ecparam_options[] = {
 
 static int list_builtin_curves(BIO *out)
 {
-    int ret = 0;
     EC_builtin_curve *curves = NULL;
     size_t n, crv_len = EC_get_builtin_curves(NULL, 0);
 
     curves = app_malloc((int)sizeof(*curves) * crv_len, "list curves");
-    if (!EC_get_builtin_curves(curves, crv_len))
-        goto end;
+    EC_get_builtin_curves(curves, crv_len);
 
     for (n = 0; n < crv_len; n++) {
         const char *comment = curves[n].comment;
@@ -87,10 +85,8 @@ static int list_builtin_curves(BIO *out)
         BIO_printf(out, "  %-10s: ", sname);
         BIO_printf(out, "%s\n", comment);
     }
-    ret = 1;
-end:
     OPENSSL_free(curves);
-    return ret;
+    return 1;
 }
 
 int ecparam_main(int argc, char **argv)

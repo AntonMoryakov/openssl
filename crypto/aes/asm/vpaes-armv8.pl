@@ -1,5 +1,5 @@
 #! /usr/bin/env perl
-# Copyright 2015-2020 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 2015-2025 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the Apache License 2.0 (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -18,7 +18,7 @@
 ## http://crypto.stanford.edu/vpaes/.
 ##
 ######################################################################
-# ARMv8 NEON adaptation by <appro@openssl.org>
+# ARMv8 NEON adaptation by <https://github.com/dot-asm>
 #
 # Reason for undertaken effort is that there is at least one popular
 # SoC based on Cortex-A53 that doesn't have crypto extensions.

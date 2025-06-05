@@ -1,5 +1,5 @@
 /*
- * Copyright 1995-2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -88,6 +88,11 @@ int EVP_PKEY_get_security_bits(const EVP_PKEY *pkey)
         return 0;
     }
     return size;
+}
+
+int EVP_PKEY_get_security_category(const EVP_PKEY *pkey)
+{
+    return pkey != NULL ? pkey->cache.security_category : -1;
 }
 
 int EVP_PKEY_save_parameters(EVP_PKEY *pkey, int mode)
@@ -897,17 +902,25 @@ const DSA *EVP_PKEY_get0_DSA(const EVP_PKEY *pkey)
 
 int EVP_PKEY_set1_DSA(EVP_PKEY *pkey, DSA *key)
 {
-    int ret = EVP_PKEY_assign_DSA(pkey, key);
-    if (ret)
-        DSA_up_ref(key);
+    int ret;
+
+    if (!DSA_up_ref(key))
+        return 0;
+
+    ret = EVP_PKEY_assign_DSA(pkey, key);
+
+    if (!ret)
+        DSA_free(key);
+
     return ret;
 }
 DSA *EVP_PKEY_get1_DSA(EVP_PKEY *pkey)
 {
     DSA *ret = evp_pkey_get0_DSA_int(pkey);
 
-    if (ret != NULL)
-        DSA_up_ref(ret);
+    if (ret != NULL && !DSA_up_ref(ret))
+        return NULL;
+
     return ret;
 }
 # endif /*  OPENSSL_NO_DSA */
@@ -973,10 +986,14 @@ int EVP_PKEY_set1_DH(EVP_PKEY *pkey, DH *dhkey)
     else
         type = DH_get0_q(dhkey) == NULL ? EVP_PKEY_DH : EVP_PKEY_DHX;
 
+    if (!DH_up_ref(dhkey))
+        return 0;
+
     ret = EVP_PKEY_assign(pkey, type, dhkey);
 
-    if (ret)
-        DH_up_ref(dhkey);
+    if (!ret)
+        DH_free(dhkey);
+
     return ret;
 }
 
@@ -998,8 +1015,9 @@ DH *EVP_PKEY_get1_DH(EVP_PKEY *pkey)
 {
     DH *ret = evp_pkey_get0_DH_int(pkey);
 
-    if (ret != NULL)
-        DH_up_ref(ret);
+    if (ret != NULL && !DH_up_ref(ret))
+        ret = NULL;
+
     return ret;
 }
 # endif

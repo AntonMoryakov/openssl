@@ -1,5 +1,5 @@
 /*
- * Copyright 1995-2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2025 The OpenSSL Project Authors. All Rights Reserved.
  * Copyright (c) 2002, Oracle and/or its affiliates. All rights reserved
  * Copyright 2005 Nokia. All rights reserved.
  *
@@ -21,6 +21,7 @@
 #include <openssl/x509v3.h>
 #include <openssl/core_names.h>
 #include "internal/cryptlib.h"
+#include "internal/ssl_unwrap.h"
 
 #define TLS13_NUM_CIPHERS       OSSL_NELEM(tls13_ciphers)
 #define SSL3_NUM_CIPHERS        OSSL_NELEM(ssl3_ciphers)
@@ -3497,7 +3498,7 @@ int ssl3_clear(SSL *s)
      * NULL/zero-out everything in the s3 struct, but remember if we are doing
      * QUIC.
      */
-    flags = sc->s3.flags & TLS1_FLAGS_QUIC;
+    flags = sc->s3.flags & (TLS1_FLAGS_QUIC | TLS1_FLAGS_QUIC_INTERNAL);
     memset(&sc->s3, 0, sizeof(sc->s3));
     sc->s3.flags |= flags;
 
@@ -3825,10 +3826,22 @@ long ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
     case SSL_CTRL_GET_CHAIN_CERT_STORE:
         return ssl_cert_get_cert_store(sc->cert, parg, 1);
 
+    case SSL_CTRL_GET_PEER_SIGNATURE_NAME:
+        if (parg == NULL || sc->s3.tmp.peer_sigalg == NULL)
+            return 0;
+        *(const char **)parg = sc->s3.tmp.peer_sigalg->name;
+        return 1;
+
     case SSL_CTRL_GET_PEER_SIGNATURE_NID:
         if (sc->s3.tmp.peer_sigalg == NULL)
             return 0;
         *(int *)parg = sc->s3.tmp.peer_sigalg->hash;
+        return 1;
+
+    case SSL_CTRL_GET_SIGNATURE_NAME:
+        if (parg == NULL || sc->s3.tmp.sigalg == NULL)
+            return 0;
+        *(const char **)parg = sc->s3.tmp.sigalg->name;
         return 1;
 
     case SSL_CTRL_GET_SIGNATURE_NID:
@@ -3841,7 +3854,9 @@ long ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
         if (sc->session == NULL || sc->s3.peer_tmp == NULL) {
             return 0;
         } else {
-            EVP_PKEY_up_ref(sc->s3.peer_tmp);
+            if (!EVP_PKEY_up_ref(sc->s3.peer_tmp))
+                return 0;
+
             *(EVP_PKEY **)parg = sc->s3.peer_tmp;
             return 1;
         }
@@ -3850,7 +3865,9 @@ long ssl3_ctrl(SSL *s, int cmd, long larg, void *parg)
         if (sc->session == NULL || sc->s3.tmp.pkey == NULL) {
             return 0;
         } else {
-            EVP_PKEY_up_ref(sc->s3.tmp.pkey);
+            if (!EVP_PKEY_up_ref(sc->s3.tmp.pkey))
+                return 0;
+
             *(EVP_PKEY **)parg = sc->s3.tmp.pkey;
             return 1;
         }
@@ -5019,7 +5036,10 @@ int ssl_derive(SSL_CONNECTION *s, EVP_PKEY *privkey, EVP_PKEY *pubkey, int gense
     }
 
     if (EVP_PKEY_derive(pctx, pms, &pmslen) <= 0) {
-        SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
+        /*
+         * the public key was probably a weak key
+         */
+        SSLfatal(s, SSL_AD_ILLEGAL_PARAMETER, SSL_R_BAD_KEY_SHARE);
         goto err;
     }
 
@@ -5124,7 +5144,7 @@ int ssl_encapsulate(SSL_CONNECTION *s, EVP_PKEY *pubkey,
     }
 
     if (EVP_PKEY_encapsulate(pctx, ct, &ctlen, pms, &pmslen) <= 0) {
-        SSLfatal(s, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
+        SSLfatal(s, SSL_AD_ILLEGAL_PARAMETER, SSL_R_BAD_KEY_SHARE);
         goto err;
     }
 

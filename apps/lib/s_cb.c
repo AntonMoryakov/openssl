@@ -1,5 +1,5 @@
 /*
- * Copyright 1995-2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 1995-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -328,6 +328,7 @@ static int do_print_sigalgs(BIO *out, SSL *s, int shared)
 
 int ssl_print_sigalgs(BIO *out, SSL *s)
 {
+    const char *name;
     int nid;
 
     if (!SSL_is_server(s))
@@ -336,7 +337,9 @@ int ssl_print_sigalgs(BIO *out, SSL *s)
     do_print_sigalgs(out, s, 1);
     if (SSL_get_peer_signature_nid(s, &nid) && nid != NID_undef)
         BIO_printf(out, "Peer signing digest: %s\n", OBJ_nid2sn(nid));
-    if (SSL_get_peer_signature_type_nid(s, &nid))
+    if (SSL_get0_peer_signature_name(s, &name))
+        BIO_printf(out, "Peer signature type: %s\n", name);
+    else if (SSL_get_peer_signature_type_nid(s, &nid))
         BIO_printf(out, "Peer signature type: %s\n", get_sigtype(nid));
     return 1;
 }
@@ -1306,6 +1309,7 @@ void print_verify_detail(SSL *s, BIO *bio)
 
 void print_ssl_summary(SSL *s)
 {
+    const char *sigalg;
     const SSL_CIPHER *c;
     X509 *peer = SSL_get0_peer_certificate(s);
     EVP_PKEY *peer_rpk = SSL_get0_peer_rpk(s);
@@ -1323,13 +1327,13 @@ void print_ssl_summary(SSL *s)
         BIO_puts(bio_err, "\n");
         if (SSL_get_peer_signature_nid(s, &nid))
             BIO_printf(bio_err, "Hash used: %s\n", OBJ_nid2sn(nid));
-        if (SSL_get_peer_signature_type_nid(s, &nid))
-            BIO_printf(bio_err, "Signature type: %s\n", get_sigtype(nid));
+        if (SSL_get0_peer_signature_name(s, &sigalg))
+            BIO_printf(bio_err, "Signature type: %s\n", sigalg);
         print_verify_detail(s, bio_err);
     } else if (peer_rpk != NULL) {
         BIO_printf(bio_err, "Peer used raw public key\n");
-        if (SSL_get_peer_signature_type_nid(s, &nid))
-            BIO_printf(bio_err, "Signature type: %s\n", get_sigtype(nid));
+        if (SSL_get0_peer_signature_name(s, &sigalg))
+            BIO_printf(bio_err, "Signature type: %s\n", sigalg);
         print_verify_detail(s, bio_err);
     } else {
         BIO_puts(bio_err, "No peer certificate or raw public key\n");

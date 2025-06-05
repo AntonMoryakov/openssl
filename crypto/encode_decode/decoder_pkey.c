@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2020-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -149,15 +149,7 @@ static int decoder_construct_pkey(OSSL_DECODER_INSTANCE *decoder_inst,
          * result in the keymgmt.
          */
         if (keymgmt_prov == decoder_prov) {
-            /*
-             * When load returns NULL, because, though the provided key material
-             * is syntactically valid (parsed OK), it is not an acceptable key,
-             * the reason why the key is rejected would be lost, unless we
-             * signal a hard error, and suppress resetting for another try.
-             */
             keydata = evp_keymgmt_load(keymgmt, object_ref, object_ref_sz);
-            if (keydata == NULL)
-                ossl_decoder_ctx_set_harderr(data->ctx);
         } else {
             struct evp_keymgmt_util_try_import_data_st import_data;
 
@@ -180,6 +172,14 @@ static int decoder_construct_pkey(OSSL_DECODER_INSTANCE *decoder_inst,
             keydata = import_data.keydata;
             import_data.keydata = NULL;
         }
+        /*
+         * When load or import fails, because this is not an acceptable key
+         * (despite the provided key material being syntactically valid), the
+         * reason why the key is rejected would be lost, unless we signal a
+         * hard error, and suppress resetting for another try.
+         */
+        if (keydata == NULL)
+            ossl_decoder_ctx_set_harderr(data->ctx);
 
         if (keydata != NULL
             && (pkey = evp_keymgmt_util_make_pkey(keymgmt, keydata)) == NULL)
@@ -249,6 +249,20 @@ static void collect_decoder_keymgmt(EVP_KEYMGMT *keymgmt, OSSL_DECODER *decoder,
     if ((di = ossl_decoder_instance_new(decoder, decoderctx)) == NULL) {
         decoder->freectx(decoderctx);
         data->error_occurred = 1;
+        return;
+    }
+
+    /*
+     * Input types must be compatible, but we must accept DER encoders when the
+     * start input type is "PEM".
+     */
+    if (data->ctx->start_input_type != NULL
+        && di->input_type != NULL
+        && OPENSSL_strcasecmp(di->input_type, data->ctx->start_input_type) != 0
+        && (OPENSSL_strcasecmp(di->input_type, "DER") != 0
+            || OPENSSL_strcasecmp(data->ctx->start_input_type, "PEM") != 0)) {
+        /* Mismatch is not an error, continue. */
+        ossl_decoder_instance_free(di);
         return;
     }
 
@@ -753,19 +767,26 @@ OSSL_DECODER_CTX_new_for_pkey(EVP_PKEY **pkey,
     OSSL_DECODER_CTX *ctx = NULL;
     OSSL_PARAM decoder_params[] = {
         OSSL_PARAM_END,
+        OSSL_PARAM_END,
         OSSL_PARAM_END
     };
     DECODER_CACHE *cache
         = ossl_lib_ctx_get_data(libctx, OSSL_LIB_CTX_DECODER_CACHE_INDEX);
     DECODER_CACHE_ENTRY cacheent, *res, *newcache = NULL;
+    int i = 0;
 
     if (cache == NULL) {
         ERR_raise(ERR_LIB_OSSL_DECODER, ERR_R_OSSL_DECODER_LIB);
         return NULL;
     }
+    if (input_structure != NULL)
+        decoder_params[i++] =
+            OSSL_PARAM_construct_utf8_string(OSSL_OBJECT_PARAM_DATA_STRUCTURE,
+                                             (char *)input_structure, 0);
     if (propquery != NULL)
-        decoder_params[0] = OSSL_PARAM_construct_utf8_string(OSSL_DECODER_PARAM_PROPERTIES,
-                                                             (char *)propquery, 0);
+        decoder_params[i++] =
+            OSSL_PARAM_construct_utf8_string(OSSL_DECODER_PARAM_PROPERTIES,
+                                             (char *)propquery, 0);
 
     /* It is safe to cast away the const here */
     cacheent.input_type = (char *)input_type;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2000-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -414,5 +414,3 @@ int evp_names_do_all(OSSL_PROVIDER *prov, int number,
                      void (*fn)(const char *name, void *data),
                      void *data);
 int evp_cipher_cache_constants(EVP_CIPHER *cipher);
-
-EVP_SKEY *evp_skey_alloc(void);

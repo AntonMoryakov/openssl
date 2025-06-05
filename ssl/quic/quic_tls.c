@@ -1,5 +1,5 @@
 /*
- * Copyright 2022-2024 The OpenSSL Project Authors. All Rights Reserved.
+ * Copyright 2022-2025 The OpenSSL Project Authors. All Rights Reserved.
  *
  * Licensed under the Apache License 2.0 (the "License").  You may not use
  * this file except in compliance with the License.  You can obtain a copy
@@ -10,8 +10,10 @@
 #include "internal/recordmethod.h"
 #include "internal/quic_tls.h"
 #include "../ssl_local.h"
+#include "internal/quic_record_util.h"
 #include "internal/quic_error.h"
 #include "internal/quic_types.h"
+#include "internal/ssl_unwrap.h"
 
 #define QUIC_TLS_FATAL(rl, ad, err) \
     do { \
@@ -52,6 +54,9 @@ struct quic_tls_st {
 
     /* Set if the handshake has completed */
     unsigned int complete : 1;
+
+    /* Set if we have consumed the local transport parameters yet. */
+    unsigned int local_transport_params_consumed : 1;
 };
 
 struct ossl_record_layer_st {
@@ -172,6 +177,8 @@ quic_new_record_layer(OSSL_LIB_CTX *libctx, const char *propq, int vers,
         if (!ossl_assert("Should not happen" == NULL))
             goto err;
 #endif
+    } else {
+        kdfdigest = NULL;
     }
 
     if (!rl->qtls->args.yield_secret_cb(level, qdir, suite_id,
@@ -418,18 +425,15 @@ static int quic_release_record(OSSL_RECORD_LAYER *rl, void *rechandle,
         return OSSL_RECORD_RETURN_FATAL;
     }
 
-    rl->recunreleased -= length;
-
-    if (rl->recunreleased > 0)
-        return OSSL_RECORD_RETURN_SUCCESS;
-
-    if (!rl->qtls->args.crypto_release_rcd_cb(rl->recread,
-                                              rl->qtls->args.crypto_release_rcd_cb_arg)) {
-        QUIC_TLS_FATAL(rl, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
-        return OSSL_RECORD_RETURN_FATAL;
+    if (rl->recunreleased == length) {
+        if (!rl->qtls->args.crypto_release_rcd_cb(rl->recread,
+                                                  rl->qtls->args.crypto_release_rcd_cb_arg)) {
+            QUIC_TLS_FATAL(rl, SSL_AD_INTERNAL_ERROR, ERR_R_INTERNAL_ERROR);
+            return OSSL_RECORD_RETURN_FATAL;
+        }
+        rl->recread = 0;
     }
-
-    rl->recread = 0;
+    rl->recunreleased -= length;
     return OSSL_RECORD_RETURN_SUCCESS;
 }
 
@@ -600,6 +604,7 @@ static int add_transport_params_cb(SSL *s, unsigned int ext_type,
 
     *out = qtls->local_transport_params;
     *outlen = qtls->local_transport_params_len;
+    qtls->local_transport_params_consumed = 1;
     return 1;
 }
 
@@ -705,9 +710,20 @@ static int raise_error(QUIC_TLS *qtls, uint64_t error_code,
 int ossl_quic_tls_configure(QUIC_TLS *qtls)
 {
     SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(qtls->args.s);
+    BIO *nullbio;
 
-    if (!SSL_set_min_proto_version(qtls->args.s, TLS1_3_VERSION))
+    if (sc == NULL || !SSL_set_min_proto_version(qtls->args.s, TLS1_3_VERSION))
         return RAISE_INTERNAL_ERROR(qtls);
+
+    nullbio = BIO_new(BIO_s_null());
+    if (nullbio == NULL)
+        return RAISE_INTERNAL_ERROR(qtls);
+
+    /*
+     * Our custom record layer doesn't use the BIO - but libssl generally
+     * expects one to be present.
+     */
+    SSL_set_bio(qtls->args.s, nullbio, nullbio);
 
     SSL_clear_options(qtls->args.s, SSL_OP_ENABLE_MIDDLEBOX_COMPAT);
     ossl_ssl_set_custom_record_layer(sc, &quic_tls_record_method, qtls);
@@ -764,8 +780,11 @@ int ossl_quic_tls_tick(QUIC_TLS *qtls)
 
     if (!qtls->configured) {
         SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(qtls->args.s);
-        SSL_CTX *sctx = SSL_CONNECTION_GET_CTX(sc);
-        BIO *nullbio;
+        SSL_CTX *sctx;
+
+        if (sc == NULL)
+            return RAISE_INTERNAL_ERROR(qtls);
+        sctx = SSL_CONNECTION_GET_CTX(sc);
 
         /*
          * No matter how the user has configured us, there are certain
@@ -785,15 +804,7 @@ int ossl_quic_tls_tick(QUIC_TLS *qtls)
         if (!ossl_quic_tls_configure(qtls))
             return RAISE_INTERNAL_ERROR(qtls);
 
-        nullbio = BIO_new(BIO_s_null());
-        if (nullbio == NULL)
-            return RAISE_INTERNAL_ERROR(qtls);
-
-        /*
-         * Our custom record layer doesn't use the BIO - but libssl generally
-         * expects one to be present.
-         */
-        SSL_set_bio(qtls->args.s, nullbio, nullbio);
+        sc->s3.flags |= TLS1_FLAGS_QUIC_INTERNAL;
 
         if (qtls->args.is_server)
             SSL_set_accept_state(qtls->args.s);
@@ -847,10 +858,20 @@ int ossl_quic_tls_tick(QUIC_TLS *qtls)
 }
 #endif
 
+void ossl_quic_tls_clear(QUIC_TLS *qtls)
+{
+    if (qtls == NULL)
+        return;
+    qtls->local_transport_params_consumed = 0;
+}
+
 int ossl_quic_tls_set_transport_params(QUIC_TLS *qtls,
                                        const unsigned char *transport_params,
                                        size_t transport_params_len)
 {
+    if (qtls->local_transport_params_consumed)
+        return 0;
+
     qtls->local_transport_params       = transport_params;
     qtls->local_transport_params_len   = transport_params_len;
     return 1;
@@ -878,6 +899,9 @@ int ossl_quic_tls_is_cert_request(QUIC_TLS *qtls)
 {
     SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(qtls->args.s);
 
+    if (sc == NULL)
+        return 0;
+
     return sc->s3.tmp.message_type == SSL3_MT_CERTIFICATE_REQUEST;
 }
 
@@ -895,4 +919,31 @@ int ossl_quic_tls_has_bad_max_early_data(QUIC_TLS *qtls)
      * we can be confident that it was not present in the NewSessionTicket
      */
     return max_early_data != 0xffffffff && max_early_data != 0;
+}
+
+int ossl_quic_tls_set_early_data_enabled(QUIC_TLS *qtls, int enabled)
+{
+    SSL_CONNECTION *sc = SSL_CONNECTION_FROM_SSL(qtls->args.s);
+
+    if (sc == NULL || !SSL_IS_QUIC_HANDSHAKE(sc) || !SSL_in_before(qtls->args.s))
+        return 0;
+
+    if (!enabled) {
+        sc->max_early_data = 0;
+        sc->early_data_state = SSL_EARLY_DATA_NONE;
+        return 1;
+    }
+
+    if (sc->server) {
+        sc->max_early_data = 0xffffffff;
+        sc->early_data_state = SSL_EARLY_DATA_ACCEPTING;
+        return 1;
+    }
+
+    if ((sc->session == NULL || sc->session->ext.max_early_data != 0xffffffff)
+        && sc->psk_use_session_cb == NULL)
+        return 0;
+
+    sc->early_data_state = SSL_EARLY_DATA_CONNECTING;
+    return 1;
 }
